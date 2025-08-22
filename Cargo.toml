@@ -1,0 +1,10 @@
+[package]
+name = "libmdnsresponder"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+log = "0.4.27"
+tokio = { version = "1.47.1", features = ["full"] }
+tokio-util = "0.7.16"
+rand = "0.9.2"

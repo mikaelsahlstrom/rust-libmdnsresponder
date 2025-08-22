@@ -1,0 +1,13 @@
+[package]
+name = "lib-mDNSResponder-examples"
+version = "1.0.0"
+edition = "2021"
+authors = ["Mikael Sahlström <mick.sahlstrom@proton.me>"]
+license = "MIT"
+repository = "https://github.com/mikaelsahlstrom/rust-mdnsresponder"
+
+[dependencies]
+libmdnsresponder = { path = "../" }
+env_logger = "0.11.8"
+log = "0.4.27"
+tokio = { version = "1.47.1", features = ["full"] }
