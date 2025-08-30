@@ -53,8 +53,6 @@ impl Ipc
     {
         debug!("Starting IPC listener for mDNSResponder socket");
 
-        let mut buf = [0u8; 1024];
-
         loop
         {
             debug!("Before select in read loop");
@@ -68,6 +66,7 @@ impl Ipc
                 _ = read.readable() =>
                 {
                     debug!("Socket is readable");
+                    let mut buf = [0u8; 1024];
                     match read.try_read(&mut buf)
                     {
                         Ok(0) =>
@@ -78,18 +77,18 @@ impl Ipc
                         Ok(n) =>
                         {
                             debug!("Read {} bytes from IPC socket", n);
-                            debug!("Bytes: {:?}", &buf[..n]);
-                            match header::IpcMessageHeader::from(&buf[..n])
+
+                            let mut pos = 0;
+                            while pos < n
                             {
-                                Ok(header) =>
+                                let frame_size = Self::parse_frame(&buf[pos..n]);
+                                if frame_size == 0
                                 {
-                                    debug!("Received IPC message: {:?}", header);
-                                    // Here you would handle the IPC message based on the operation type
+                                    debug!("No more complete frames to parse");
+                                    break;
                                 }
-                                Err(e) =>
-                                {
-                                    error!("Failed to parse IPC message header: {}", e);
-                                }
+
+                                pos += frame_size;
                             }
                         }
                         Err(ref e) if e.kind() == io::ErrorKind::WouldBlock =>
@@ -120,12 +119,12 @@ impl Ipc
 
     pub async fn write_browse_request(&mut self, service_type: String, service_domain: String)
     {
-        let request = operation::IpcOperation::BrowseRequest(operation::browse::Request::new(
+        let request = operation::browse::Request::new(
             operation::browse::ServiceFlags::none,
             0, // Interface index, set to 0 for default
             service_type,
             service_domain,
-        ));
+        );
 
         let request_buf = request.to_bytes();
 
@@ -147,5 +146,50 @@ impl Ipc
         debug!("Writing browse request to mDNSResponder: {:?}", buf);
 
         self.write(&buf).await;
+    }
+
+    fn parse_frame(buf: &[u8]) -> usize
+    {
+        match header::IpcMessageHeader::from(&buf[..buf.len()])
+        {
+            Ok(header) =>
+            {
+                debug!("Received IPC message: {:?}", header);
+
+                match header.operation
+                {
+                    header::Operation::Reply(reply) =>
+                    {
+                        match reply
+                        {
+                            header::reply::ReplyOperation::Browse =>
+                            {
+                                debug!("Received Browse Reply");
+                                let start_pos = header::IPC_HEADER_SIZE;
+                                let stop_pos = start_pos + header.data_length as usize;
+                                let browse_reply = operation::browse::Reply::from_bytes(&buf[start_pos..stop_pos]);
+                                debug!("Parsed Browse Reply: {:?}", browse_reply);
+                                return header::IPC_HEADER_SIZE + header.data_length as usize;
+                            }
+                            _ =>
+                            {
+                                debug!("Received other reply operation: {:?}", reply);
+                                return 0;
+                            }
+                        }
+                    }
+                    _ =>
+                    {
+                        debug!("Received non-reply IPC message");
+                        return 0;
+                    }
+                }
+            }
+            Err(e) =>
+            {
+                error!("Failed to parse IPC message header: {}", e);
+                return 0;
+            }
+        }
     }
 }

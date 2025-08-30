@@ -1,6 +1,6 @@
 use core::fmt;
 use std::io;
-use log::{ debug, error };
+use log::{ debug };
 
 pub mod reply;
 pub mod request;
@@ -19,21 +19,23 @@ pub enum IpcFlags
     no_err_sd = 0x4
 }
 
+pub const IPC_HEADER_SIZE: usize = 28;
+
 pub struct IpcMessageHeader
 {
-    version: u32,
-    data_length: u32,
-    ipc_flags: u32,
-    operation: Operation,
-    client_context: u64,
-    reg_index: u32
+    pub version: u32,
+    pub data_length: u32,
+    pub ipc_flags: u32,
+    pub operation: Operation,
+    pub client_context: u64,
+    pub reg_index: u32
 }
 
 impl IpcMessageHeader
 {
     pub fn from(buf: &[u8]) -> io::Result<Self>
     {
-        if buf.len() < std::mem::size_of::<IpcMessageHeader>()
+        if buf.len() < IPC_HEADER_SIZE
         {
             return Err(io::Error::new(io::ErrorKind::InvalidData, "Buffer too short for IPC message header"));
         }
