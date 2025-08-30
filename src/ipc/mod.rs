@@ -4,7 +4,6 @@ use tokio_util::sync::CancellationToken;
 use std::io;
 use log::{ debug, error };
 use tokio::select;
-use rand::prelude::*;
 
 mod header;
 mod operation;
