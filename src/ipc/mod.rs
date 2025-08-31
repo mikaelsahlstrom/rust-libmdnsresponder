@@ -43,9 +43,7 @@ impl Ipc
     {
         debug!("Closing IPC connection to mDNSResponder");
         self.cancel_token.cancel();
-        debug!("Cancellation token has been triggered, waiting for listener task to finish");
         self.listen_task.await.expect("Failed to join IPC listener task");
-        debug!("IPC listener task has been cancelled and joined");
     }
 
     async fn listener(mut read: OwnedReadHalf, task_cancel_token: CancellationToken)
@@ -54,7 +52,6 @@ impl Ipc
 
         loop
         {
-            debug!("Before select in read loop");
             select!
             {
                 _ = task_cancel_token.cancelled() =>
@@ -64,7 +61,6 @@ impl Ipc
                 }
                 _ = read.readable() =>
                 {
-                    debug!("Socket is readable");
                     let mut buf = [0u8; 1024];
                     match read.try_read(&mut buf)
                     {
@@ -183,7 +179,6 @@ impl Ipc
                         {
                             header::reply::ReplyOperation::Browse =>
                             {
-                                debug!("Received Browse Reply");
                                 let start_pos = header::IPC_HEADER_SIZE;
                                 let stop_pos = start_pos + header.data_length as usize;
                                 let browse_reply = operation::browse::Reply::from_bytes(&buf[start_pos..stop_pos]);
