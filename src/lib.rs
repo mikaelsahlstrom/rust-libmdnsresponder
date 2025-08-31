@@ -42,8 +42,13 @@ impl MDnsResponder
         self.ipc.close().await;
     }
 
-    pub async fn browse(&mut self, service_type: &str, service_domain: &str)
+    pub async fn browse(&mut self, service_type: &str, service_domain: &str) -> u64
     {
-        self.ipc.write_browse_request(service_type.to_string(), service_domain.to_string()).await;
+        return self.ipc.write_browse_request(service_type.to_string(), service_domain.to_string()).await;
+    }
+
+    pub async fn cancel(&mut self, context: u64)
+    {
+        self.ipc.write_cancel_request(context).await;
     }
 }

@@ -116,7 +116,7 @@ impl Ipc
         }
     }
 
-    pub async fn write_browse_request(&mut self, service_type: String, service_domain: String)
+    pub async fn write_browse_request(&mut self, service_type: String, service_domain: String) -> u64
     {
         let request = operation::browse::Request::new(
             operation::browse::ServiceFlags::none,
@@ -145,6 +145,26 @@ impl Ipc
         debug!("Writing browse request to mDNSResponder: {:?}", buf);
 
         self.write(&buf).await;
+
+        return header.client_context;
+    }
+
+    pub async fn write_cancel_request(&mut self, context: u64)
+    {
+        let header = header::IpcMessageHeader::new(
+            1, // Version
+            0, // No data
+            header::IpcFlags::no_err_sd as u32,
+            header::Operation::Request(header::request::RequestOperation::Cancel),
+            context,
+            0, // Registration index, set to 0 for default
+        );
+
+        let header_buf = header.to_bytes();
+
+        debug!("Writing cancel request to mDNSResponder: {:?}", header_buf);
+
+        self.write(&header_buf).await;
     }
 
     fn parse_frame(buf: &[u8]) -> usize
