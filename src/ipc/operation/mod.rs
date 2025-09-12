@@ -1,4 +1,5 @@
 pub mod browse;
+pub mod resolve;
 
 #[derive(Debug)]
 pub enum ReplyFlags
