@@ -19,6 +19,35 @@ pub struct Request
     domain: String,
 }
 
+<<<<<<< HEAD
+=======
+#[derive(Debug, PartialEq)]
+pub enum ReplyFlags
+{
+    more_coming = 0x1,
+    add = 0x2,
+    threshold_reached = 0x2000000
+}
+
+#[derive(Debug)]
+pub struct ReplyHeader
+{
+    flags: Vec<ReplyFlags>,
+    interface_index: u32,
+    error: u32
+}
+
+#[derive(Debug)]
+pub struct Reply
+{
+    pub header: ReplyHeader,
+    pub service_name: String,
+    pub service_type: String,
+    pub service_domain: String
+}
+
+
+>>>>>>> main
 impl Request
 {
     pub fn new(service_flags: ServiceFlags, interface_index: u32, reg_type: String, domain: String) -> Self
@@ -74,5 +103,10 @@ impl Reply
         let service_domain = Self::cstr_from_buf(&buf[offset..]);
 
         Ok(Reply { header, service_name, service_type, service_domain })
+    }
+
+    pub fn is_add(&self) -> bool
+    {
+        return self.header.flags.contains(&ReplyFlags::add);
     }
 }

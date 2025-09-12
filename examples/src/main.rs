@@ -1,4 +1,4 @@
-use log::{ debug };
+use log::{ debug, info };
 use libmdnsresponder;
 
 #[tokio::main]
@@ -12,9 +12,22 @@ async fn main()
 
     let browse_context = responder.browse("_sonos._tcp", "local").await;
 
-    debug!("Service discovery started, waiting for Ctrl+C to exit");
-    tokio::signal::ctrl_c().await.unwrap();
-    debug!("Ctrl+C received, stopping service discovery");
+    debug!("Service discovery started, waiting for services or Ctrl+C to exit");
+
+    loop {
+        tokio::select! {
+            Some(service) = responder.service_added.recv() => {
+                info!("Service added: {}", service);
+            }
+            Some(service) = responder.service_removed.recv() => {
+                info!("Service removed: {}", service);
+            }
+            _ = tokio::signal::ctrl_c() => {
+                debug!("Ctrl+C received, stopping service discovery");
+                break;
+            }
+        }
+    }
 
     // Cancel the browse operation.
     responder.cancel(browse_context).await;

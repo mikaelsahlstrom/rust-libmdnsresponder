@@ -1,4 +1,5 @@
 use tokio::net::{ UnixStream, unix::{ OwnedReadHalf, OwnedWriteHalf } };
+use tokio::sync::mpsc;
 use tokio::task;
 use tokio_util::sync::CancellationToken;
 use std::io;
@@ -19,7 +20,7 @@ pub struct Ipc
 
 impl Ipc
 {
-    pub async fn new() -> io::Result<Self>
+    pub async fn new(service_added: mpsc::Sender<String>, service_removed: mpsc::Sender<String>) -> io::Result<Self>
     {
         let stream = match UnixStream::connect(SOCKET_PATH).await
         {
@@ -34,7 +35,8 @@ impl Ipc
         let cancel_token = CancellationToken::new();
         let (read_socket, write_socket) = stream.into_split();
 
-        let listen_task = task::spawn(Self::listener(read_socket, cancel_token.clone()));
+        let listen_task = task::spawn(Self::listener(read_socket, cancel_token.clone(),
+                                                                             service_added, service_removed));
 
         return Ok(Ipc { listen_task, cancel_token, write_socket });
     }
@@ -46,7 +48,8 @@ impl Ipc
         self.listen_task.await.expect("Failed to join IPC listener task");
     }
 
-    async fn listener(mut read: OwnedReadHalf, task_cancel_token: CancellationToken)
+    async fn listener(read: OwnedReadHalf, task_cancel_token: CancellationToken,
+                      service_added: mpsc::Sender<String>, service_removed: mpsc::Sender<String>)
     {
         debug!("Starting IPC listener for mDNSResponder socket");
 
@@ -76,7 +79,7 @@ impl Ipc
                             let mut pos = 0;
                             while pos < n
                             {
-                                let frame_size = Self::parse_frame(&buf[pos..n]);
+                                let frame_size = Self::parse_frame(&buf[pos..n], &service_added, &service_removed).await;
                                 if frame_size == 0
                                 {
                                     debug!("No more complete frames to parse");
@@ -163,7 +166,7 @@ impl Ipc
         self.write(&header_buf).await;
     }
 
-    fn parse_frame(buf: &[u8]) -> usize
+    async fn parse_frame(buf: &[u8], service_added: &mpsc::Sender<String>, service_removed: &mpsc::Sender<String>) -> usize
     {
         match header::IpcMessageHeader::from(&buf[..buf.len()])
         {
@@ -179,11 +182,7 @@ impl Ipc
                         {
                             header::reply::ReplyOperation::Browse =>
                             {
-                                let start_pos = header::IPC_HEADER_SIZE;
-                                let stop_pos = start_pos + header.data_length as usize;
-                                let browse_reply = operation::browse::Reply::from_bytes(&buf[start_pos..stop_pos]);
-                                debug!("Parsed Browse Reply: {:?}", browse_reply);
-                                return header::IPC_HEADER_SIZE + header.data_length as usize;
+                                return Self::parse_browse_reply(buf, header.data_length, service_added, service_removed).await;
                             }
                             _ =>
                             {
@@ -205,5 +204,40 @@ impl Ipc
                 return 0;
             }
         }
+    }
+
+    async fn parse_browse_reply(buf: &[u8], data_length: u32, service_added: &mpsc::Sender<String>, service_removed: &mpsc::Sender<String>) -> usize
+    {
+        let start_pos = header::IPC_HEADER_SIZE;
+        let stop_pos = start_pos + data_length as usize;
+        let browse_reply = match operation::browse::Reply::from_bytes(&buf[start_pos..stop_pos])
+        {
+            Ok(reply) => reply,
+            Err(e) => {
+                // TODO: Better error handling here
+                error!("Failed to parse browse reply: {}", e);
+                return 0;
+            }
+        };
+
+        if browse_reply.is_add()
+        {
+            if let Err(e) = service_added.send(browse_reply.service_name.clone()).await
+            {
+                // TODO: Better error handling here
+                error!("Failed to send service added notification: {}", e);
+            }
+        }
+        else
+        {
+            if let Err(e) = service_removed.send(browse_reply.service_name.clone()).await
+            {
+                // TODO: Better error handling here
+                error!("Failed to send service removed notification: {}", e);
+            }
+        }
+
+        debug!("Parsed Browse Reply: {:?}", browse_reply);
+        return header::IPC_HEADER_SIZE + data_length as usize;
     }
 }
