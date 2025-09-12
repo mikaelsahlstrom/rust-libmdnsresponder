@@ -19,7 +19,7 @@ pub struct Request
     domain: String,
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum ReplyFlags
 {
     more_coming = 0x1,
@@ -38,10 +38,10 @@ pub struct ReplyHeader
 #[derive(Debug)]
 pub struct Reply
 {
-    header: ReplyHeader,
-    service_name: String,
-    service_type: String,
-    service_domain: String
+    pub header: ReplyHeader,
+    pub service_name: String,
+    pub service_type: String,
+    pub service_domain: String
 }
 
 
@@ -128,5 +128,10 @@ impl Reply
         let service_domain = Self::cstr_from_buf(&buf[pos..]);
 
         Ok(Reply { header, service_name, service_type, service_domain })
+    }
+
+    pub fn is_add(&self) -> bool
+    {
+        return self.header.flags.contains(&ReplyFlags::add);
     }
 }
