@@ -45,7 +45,7 @@ impl ReplyFlags
 impl ReplyHeader
 {
     pub fn from_bytes(buf: &[u8]) -> Result<Self, String>
-{
+    {
         if buf.len() < 12
         {
             return Err(format!("Buffer too short for ReplyHeader: {}", buf.len()));
