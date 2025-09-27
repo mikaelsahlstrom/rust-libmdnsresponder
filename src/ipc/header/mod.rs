@@ -72,7 +72,7 @@ impl IpcMessageHeader
             operation = Operation::Request(request_operation);
         }
 
-        Ok(IpcMessageHeader
+        return Ok(IpcMessageHeader
         {
             version,
             data_length,
@@ -80,7 +80,7 @@ impl IpcMessageHeader
             operation,
             client_context,
             reg_index,
-        })
+        });
     }
 
     pub fn new(
@@ -92,7 +92,7 @@ impl IpcMessageHeader
         reg_index: u32,
     ) -> Self
     {
-        IpcMessageHeader
+        return IpcMessageHeader
         {
             version,
             data_length,
@@ -100,7 +100,7 @@ impl IpcMessageHeader
             operation,
             client_context,
             reg_index,
-        }
+        };
     }
 
     pub fn to_bytes(&self) -> Vec<u8>
