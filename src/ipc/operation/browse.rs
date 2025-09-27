@@ -8,7 +8,7 @@ pub enum ServiceFlags
     default = 0x3,
     force_multicast = 0x400,
     include_p2p = 0x20000,
-    include_awdl = 0x100000
+    include_awdl = 0x100000,
 }
 
 pub struct Request
@@ -19,40 +19,31 @@ pub struct Request
     domain: String,
 }
 
-<<<<<<< HEAD
-=======
-#[derive(Debug, PartialEq)]
-pub enum ReplyFlags
-{
-    more_coming = 0x1,
-    add = 0x2,
-    threshold_reached = 0x2000000
-}
-
-#[derive(Debug)]
-pub struct ReplyHeader
-{
-    flags: Vec<ReplyFlags>,
-    interface_index: u32,
-    error: u32
-}
-
 #[derive(Debug)]
 pub struct Reply
 {
-    pub header: ReplyHeader,
+    pub header: super::ReplyHeader,
     pub service_name: String,
     pub service_type: String,
-    pub service_domain: String
+    pub service_domain: String,
 }
 
-
->>>>>>> main
 impl Request
 {
-    pub fn new(service_flags: ServiceFlags, interface_index: u32, reg_type: String, domain: String) -> Self
+    pub fn new(
+        service_flags: ServiceFlags,
+        interface_index: u32,
+        reg_type: String,
+        domain: String,
+    ) -> Self
     {
-        Request { service_flags, interface_index, reg_type, domain }
+        return Request
+        {
+            service_flags,
+            interface_index,
+            reg_type,
+            domain,
+        };
     }
 
     pub fn to_bytes(&self) -> Vec<u8>
@@ -82,31 +73,40 @@ impl Reply
 
         let mut offset = 12;
 
-        if offset >= buf.len() {
+        if offset >= buf.len()
+        {
             return Err("Buffer too short to contain service name".to_string());
         }
 
         let service_name = Self::cstr_from_buf(&buf[offset..]);
         offset += service_name.len() + 1;
 
-        if offset >= buf.len() {
+        if offset >= buf.len()
+        {
             return Err("Buffer too short to contain service type".to_string());
         }
 
         let service_type = Self::cstr_from_buf(&buf[offset..]);
         offset += service_type.len() + 1;
 
-        if offset >= buf.len() {
+        if offset >= buf.len()
+        {
             return Err("Buffer too short to contain service domain".to_string());
         }
 
         let service_domain = Self::cstr_from_buf(&buf[offset..]);
 
-        Ok(Reply { header, service_name, service_type, service_domain })
+        return Ok(Reply
+        {
+            header,
+            service_name,
+            service_type,
+            service_domain,
+        });
     }
 
     pub fn is_add(&self) -> bool
     {
-        return self.header.flags.contains(&ReplyFlags::add);
+        return self.header.flags.contains(&super::ReplyFlags::add);
     }
 }

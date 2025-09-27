@@ -1,11 +1,9 @@
-const ESCAPED_BYTE_SMALL: &str = 
-    "\\000\\001\\002\\003\\004\\005\\006\\007\\008\\009\
+const ESCAPED_BYTE_SMALL: &str = "\\000\\001\\002\\003\\004\\005\\006\\007\\008\\009\
      \\010\\011\\012\\013\\014\\015\\016\\017\\018\\019\
      \\020\\021\\022\\023\\024\\025\\026\\027\\028\\029\
      \\030\\031";
 
-const ESCAPED_BYTE_LARGE: &str = 
-    "\\127\\128\\129\
+const ESCAPED_BYTE_LARGE: &str = "\\127\\128\\129\
      \\130\\131\\132\\133\\134\\135\\136\\137\\138\\139\
      \\140\\141\\142\\143\\144\\145\\146\\147\\148\\149\
      \\150\\151\\152\\153\\154\\155\\156\\157\\158\\159\
@@ -30,7 +28,7 @@ pub enum ServiceFlags
     default = 0x3,
     force_multicast = 0x400,
     include_p2p = 0x20000,
-    include_awdl = 0x100000
+    include_awdl = 0x100000,
 }
 
 pub struct Request
@@ -45,22 +43,37 @@ pub struct Request
 #[derive(Debug)]
 pub struct Reply
 {
-    full_name: String,
-    host_target: String,
-    port: u16,
-    txt_data: Vec<String>
+    pub header: super::ReplyHeader,
+    pub full_name: String,
+    pub host_target: String,
+    pub port: u16,
+    pub txt_data: Vec<String>,
 }
 
 impl Request
 {
-    pub fn new(service_flags: ServiceFlags, interface_index: u32, name: String, reg_type: String, domain: String) -> Self
+    pub fn new(
+        service_flags: ServiceFlags,
+        interface_index: u32,
+        name: String,
+        reg_type: String,
+        domain: String,
+    ) -> Self
     {
-        Request { service_flags, interface_index, name, reg_type, domain }
+        return Request
+        {
+            service_flags,
+            interface_index,
+            name,
+            reg_type,
+            domain,
+        };
     }
 
     pub fn to_bytes(&self) -> Vec<u8>
     {
         let mut buf = Vec::new();
+
         buf.extend_from_slice(&(self.service_flags as u32).to_be_bytes());
         buf.extend_from_slice(&self.interface_index.to_be_bytes());
         buf.extend_from_slice(self.name.as_bytes());
@@ -69,6 +82,7 @@ impl Request
         buf.push(0); // NUL-terminate
         buf.extend_from_slice(self.domain.as_bytes());
         buf.push(0); // NUL-terminate
+
         return buf;
     }
 }
@@ -87,14 +101,16 @@ impl Reply
 
         let mut offset = 12;
 
-        if offset >= buf.len() {
+        if offset >= buf.len()
+        {
             return Err("Buffer too short to contain full name".to_string());
         }
 
         let full_name = Self::cstr_from_buf(&buf[offset..]);
         offset += full_name.len() + 1;
 
-        if offset >= buf.len() {
+        if offset >= buf.len()
+        {
             return Err("Buffer too short to contain host target".to_string());
         }
 
@@ -124,7 +140,14 @@ impl Reply
 
         let (txt_data, _) = unpack_txt(&buf[offset..offset + txt_len], 0)?;
 
-        Ok(Reply { full_name, host_target, port, txt_data })
+        return Ok(Reply
+        {
+            header,
+            full_name,
+            host_target,
+            port,
+            txt_data,
+        })
     }
 }
 
@@ -151,7 +174,7 @@ pub fn unpack_string(msg: &[u8], off: usize) -> Result<(String, usize), String>
     }
 
     let l = msg[off] as usize;
-    let mut off = off + 1;
+    let off = off + 1;
     if off + l > msg.len()
     {
         return Err("overflow unpacking txt (data)".to_string());
@@ -219,7 +242,7 @@ pub fn unpack_txt(msg: &[u8], offset: usize) -> Result<(Vec<String>, usize), Str
             {
                 txts.push(txt);
                 offset = new_offset;
-            },
+            }
             Err(e) =>
             {
                 // If we haven't read any strings, return the error
@@ -236,5 +259,5 @@ pub fn unpack_txt(msg: &[u8], offset: usize) -> Result<(Vec<String>, usize), Str
         }
     }
 
-    Ok((txts, offset))
+    return Ok((txts, offset));
 }

@@ -27,7 +27,8 @@ impl RequestOperation
 {
     pub fn from_u32(value: u32) -> Option<RequestOperation>
     {
-        match value {
+        return match value
+        {
             0 => Some(RequestOperation::None),
             1 => Some(RequestOperation::Connection),
             2 => Some(RequestOperation::RegisterRecord),
@@ -50,12 +51,13 @@ impl RequestOperation
             19 => Some(RequestOperation::ConnectionDelegate),
             63 => Some(RequestOperation::Cancel),
             _ => None,
-        }
+        };
     }
 
     pub fn to_u32(&self) -> u32
     {
-        match self {
+        return match self
+        {
             RequestOperation::None => 0,
             RequestOperation::Connection => 1,
             RequestOperation::RegisterRecord => 2,
@@ -77,7 +79,7 @@ impl RequestOperation
             RequestOperation::Release => 18,
             RequestOperation::ConnectionDelegate => 19,
             RequestOperation::Cancel => 63,
-        }
+        };
     }
 }
 
@@ -85,28 +87,33 @@ impl std::fmt::Debug for RequestOperation
 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result
     {
-        write!(f, "{:?}", match self {
-            RequestOperation::None => "None",
-            RequestOperation::Connection => "Connection",
-            RequestOperation::RegisterRecord => "RegisterRecord",
-            RequestOperation::RemoveRecord => "RemoveRecord",
-            RequestOperation::Enumeration => "Enumeration",
-            RequestOperation::RegisterService => "RegisterService",
-            RequestOperation::Browse => "Browse",
-            RequestOperation::Resolve => "Resolve",
-            RequestOperation::Query => "Query",
-            RequestOperation::ReconfirmRecord => "ReconfirmRecord",
-            RequestOperation::AddRecord => "AddRecord",
-            RequestOperation::UpdateRecord => "UpdateRecord",
-            RequestOperation::SetDomain => "SetDomain",
-            RequestOperation::GetProperty => "GetProperty",
-            RequestOperation::PortMapping => "PortMapping",
-            RequestOperation::AddressInfo => "AddressInfo",
-            RequestOperation::SendBpfObsolete => "SendBpfObsolete",
-            RequestOperation::GetPid => "GetPid",
-            RequestOperation::Release => "Release",
-            RequestOperation::ConnectionDelegate => "ConnectionDelegate",
-            RequestOperation::Cancel => "Cancel",
-        })
+        return write!(
+            f,
+            "{:?}",
+            match self
+            {
+                RequestOperation::None => "None",
+                RequestOperation::Connection => "Connection",
+                RequestOperation::RegisterRecord => "RegisterRecord",
+                RequestOperation::RemoveRecord => "RemoveRecord",
+                RequestOperation::Enumeration => "Enumeration",
+                RequestOperation::RegisterService => "RegisterService",
+                RequestOperation::Browse => "Browse",
+                RequestOperation::Resolve => "Resolve",
+                RequestOperation::Query => "Query",
+                RequestOperation::ReconfirmRecord => "ReconfirmRecord",
+                RequestOperation::AddRecord => "AddRecord",
+                RequestOperation::UpdateRecord => "UpdateRecord",
+                RequestOperation::SetDomain => "SetDomain",
+                RequestOperation::GetProperty => "GetProperty",
+                RequestOperation::PortMapping => "PortMapping",
+                RequestOperation::AddressInfo => "AddressInfo",
+                RequestOperation::SendBpfObsolete => "SendBpfObsolete",
+                RequestOperation::GetPid => "GetPid",
+                RequestOperation::Release => "Release",
+                RequestOperation::ConnectionDelegate => "ConnectionDelegate",
+                RequestOperation::Cancel => "Cancel",
+            }
+        );
     }
 }

@@ -1,5 +1,5 @@
-use log::{ debug, info };
 use libmdnsresponder;
+use log::{debug, info};
 
 #[tokio::main]
 async fn main()
@@ -14,15 +14,33 @@ async fn main()
 
     debug!("Service discovery started, waiting for services or Ctrl+C to exit");
 
-    loop {
-        tokio::select! {
-            Some(service) = responder.service_added.recv() => {
-                info!("Service added: {}", service);
+    loop
+    {
+        tokio::select!
+        {
+            Some(event) = responder.events.recv() =>
+            {
+                match event
+                {
+                    libmdnsresponder::MDnsResponderEvent::ServiceAdded(service) =>
+                    {
+                        info!("Service Added: {:?}", service);
+
+                        // Resolve the service to get more details.
+                        let resolve_context = responder.resolve(&service.name, &service.service_type, &service.domain).await;
+                    }
+                    libmdnsresponder::MDnsResponderEvent::ServiceRemoved(service) =>
+                    {
+                        info!("Service Removed: {:?}", service);
+                    }
+                    libmdnsresponder::MDnsResponderEvent::ServiceResolved(resolved) =>
+                    {
+                        info!("Service Resolved: {:?}", resolved);
+                    }
+                }
             }
-            Some(service) = responder.service_removed.recv() => {
-                info!("Service removed: {}", service);
-            }
-            _ = tokio::signal::ctrl_c() => {
+            _ = tokio::signal::ctrl_c() =>
+            {
                 debug!("Ctrl+C received, stopping service discovery");
                 break;
             }

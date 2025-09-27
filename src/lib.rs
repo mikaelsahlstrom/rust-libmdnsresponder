@@ -1,14 +1,38 @@
+use log::error;
 use tokio::sync::mpsc;
-use log::{ error };
 
 mod ipc;
 mod mdnsresponder_error;
 
+#[derive(Debug)]
+pub struct Service
+{
+    pub name: String,
+    pub service_type: String,
+    pub domain: String,
+}
+
+#[derive(Debug)]
+pub struct Resolved
+{
+    pub full_name: String,
+    pub host_target: String,
+    pub port: u16,
+    pub txt_data: Vec<String>,
+}
+
+#[derive(Debug)]
+pub enum MDnsResponderEvent
+{
+    ServiceAdded(Service),
+    ServiceRemoved(Service),
+    ServiceResolved(Resolved),
+}
+
 pub struct MDnsResponder
 {
     ipc: ipc::Ipc,
-    pub service_added: mpsc::Receiver<String>,
-    pub service_removed: mpsc::Receiver<String>,
+    pub events: mpsc::Receiver<MDnsResponderEvent>,
 }
 
 impl MDnsResponder
@@ -29,7 +53,9 @@ impl MDnsResponder
     /// ```rust
     /// let responder = MDnsResponder::new(10).await?;
     /// ```
-    pub async fn new(channel_buffer_size: usize) -> Result<Self, mdnsresponder_error::MDnsResponderError>
+    pub async fn new(
+        channel_buffer_size: usize,
+    ) -> Result<Self, mdnsresponder_error::MDnsResponderError>
     {
         if channel_buffer_size == 0
         {
@@ -37,19 +63,23 @@ impl MDnsResponder
             return Err(mdnsresponder_error::MDnsResponderError::ChannelCreationFailed);
         }
 
-        let (service_added_sender, service_added) = mpsc::channel(channel_buffer_size);
-        let (service_removed_sender, service_removed) = mpsc::channel(channel_buffer_size);
+        let (events_sender, events_receiver) = mpsc::channel(channel_buffer_size);
 
-        let ipc = match ipc::Ipc::new(service_added_sender, service_removed_sender).await
+        let ipc = match ipc::Ipc::new(events_sender).await
         {
             Ok(ipc) => ipc,
-            Err(e) => {
+            Err(e) =>
+            {
                 error!("Failed to create IPC: {}", e);
                 return Err(mdnsresponder_error::MDnsResponderError::IpcConnectionCreationFailed);
             }
         };
 
-        return Ok(MDnsResponder { ipc, service_added, service_removed });
+        return Ok(MDnsResponder
+        {
+            ipc,
+            events: events_receiver,
+        });
     }
 
     /// Closes the `MDnsResponder` instance, releasing any associated resources.
@@ -82,10 +112,30 @@ impl MDnsResponder
     /// ```
     pub async fn browse(&mut self, service_type: &str, service_domain: &str) -> u64
     {
-        return self.ipc.write_browse_request(service_type.to_string(), service_domain.to_string()).await;
+        return self
+            .ipc
+            .write_browse_request(service_type.to_string(), service_domain.to_string())
+            .await;
     }
 
-    /// Cancels a previously started browse operation identified by the given context.
+    pub async fn resolve(
+        &mut self,
+        service_name: &str,
+        service_type: &str,
+        service_domain: &str,
+    ) -> u64
+    {
+        return self
+            .ipc
+            .write_resolve_request(
+                service_name.to_string(),
+                service_type.to_string(),
+                service_domain.to_string(),
+            )
+            .await;
+    }
+
+    /// Cancels an ongoing browse or resolve operation identified by the given context.
     ///
     /// # Arguments
     ///
