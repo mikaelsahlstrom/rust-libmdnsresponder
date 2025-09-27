@@ -1,6 +1,6 @@
 use core::fmt;
+use log::debug;
 use std::io;
-use log::{ debug };
 
 pub mod reply;
 pub mod request;
@@ -16,7 +16,7 @@ pub enum IpcFlags
 {
     no_reply = 0x0,
     trailing_tlvs = 0x2,
-    no_err_sd = 0x4
+    no_err_sd = 0x4,
 }
 
 pub const IPC_HEADER_SIZE: usize = 28;
@@ -28,7 +28,7 @@ pub struct IpcMessageHeader
     pub ipc_flags: u32,
     pub operation: Operation,
     pub client_context: u64,
-    pub reg_index: u32
+    pub reg_index: u32,
 }
 
 impl IpcMessageHeader
@@ -37,7 +37,10 @@ impl IpcMessageHeader
     {
         if buf.len() < IPC_HEADER_SIZE
         {
-            return Err(io::Error::new(io::ErrorKind::InvalidData, "Buffer too short for IPC message header"));
+            return Err(io::Error::new(
+                io::ErrorKind::InvalidData,
+                "Buffer too short for IPC message header",
+            ));
         }
 
         let version = u32::from_be_bytes(buf[0..4].try_into().unwrap());
@@ -50,25 +53,54 @@ impl IpcMessageHeader
         let operation;
         if operation_num >= reply::REPLY_OPERATION_START
         {
-            debug!("Received reply operation: {}", operation_num);
-            let reply_operation = reply::ReplyOperation::from_u32(operation_num)
-                .ok_or_else(|| io::Error::new(io::ErrorKind::InvalidData, "Invalid reply operation"))?;
+            let reply_operation =
+                reply::ReplyOperation::from_u32(operation_num).ok_or_else(||
+                    {
+                        io::Error::new(io::ErrorKind::InvalidData, "Invalid reply operation")
+                    }
+                )?;
             operation = Operation::Reply(reply_operation);
         }
         else
         {
-            debug!("Received request operation: {}", operation_num);
-            let request_operation = request::RequestOperation::from_u32(operation_num)
-                .ok_or_else(|| io::Error::new(io::ErrorKind::InvalidData, "Invalid request operation"))?;
+            let request_operation =
+                request::RequestOperation::from_u32(operation_num).ok_or_else(||
+                    {
+                        io::Error::new(io::ErrorKind::InvalidData, "Invalid request operation")
+                    }
+                )?;
             operation = Operation::Request(request_operation);
         }
 
-        Ok(IpcMessageHeader { version, data_length, ipc_flags, operation, client_context, reg_index })
+        return Ok(IpcMessageHeader
+        {
+            version,
+            data_length,
+            ipc_flags,
+            operation,
+            client_context,
+            reg_index,
+        });
     }
 
-    pub fn new(version: u32, data_length: u32, ipc_flags: u32, operation: Operation, client_context: u64, reg_index: u32) -> Self
+    pub fn new(
+        version: u32,
+        data_length: u32,
+        ipc_flags: u32,
+        operation: Operation,
+        client_context: u64,
+        reg_index: u32,
+    ) -> Self
     {
-        IpcMessageHeader { version, data_length, ipc_flags, operation, client_context, reg_index }
+        return IpcMessageHeader
+        {
+            version,
+            data_length,
+            ipc_flags,
+            operation,
+            client_context,
+            reg_index,
+        };
     }
 
     pub fn to_bytes(&self) -> Vec<u8>
@@ -78,10 +110,12 @@ impl IpcMessageHeader
         buf.extend_from_slice(&self.version.to_be_bytes());
         buf.extend_from_slice(&self.data_length.to_be_bytes());
         buf.extend_from_slice(&self.ipc_flags.to_be_bytes());
-        buf.extend_from_slice(&match &self.operation {
-            Operation::Request(op) => op.to_u32().to_be_bytes(),
-            Operation::Reply(op) => op.to_u32().to_be_bytes(),
-        });
+        buf.extend_from_slice(&match &self.operation
+            {
+                Operation::Request(op) => op.to_u32().to_be_bytes(),
+                Operation::Reply(op) => op.to_u32().to_be_bytes(),
+            }
+        );
         buf.extend_from_slice(&self.client_context.to_be_bytes());
         buf.extend_from_slice(&self.reg_index.to_be_bytes());
 

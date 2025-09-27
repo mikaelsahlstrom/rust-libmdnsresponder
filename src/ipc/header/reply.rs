@@ -18,7 +18,7 @@ impl ReplyOperation
 {
     pub fn from_u32(value: u32) -> Option<ReplyOperation>
     {
-        match value
+        return match value
         {
             64 => Some(ReplyOperation::Enumeration),
             65 => Some(ReplyOperation::RegisterService),
@@ -31,12 +31,12 @@ impl ReplyOperation
             72 => Some(ReplyOperation::AddressInfo),
             73 => Some(ReplyOperation::AsyncError),
             _ => None,
-        }
+        };
     }
 
     pub fn to_u32(&self) -> u32
     {
-        match self
+        return match self
         {
             ReplyOperation::Enumeration => 64,
             ReplyOperation::RegisterService => 65,
@@ -48,7 +48,7 @@ impl ReplyOperation
             ReplyOperation::PortMapping => 71,
             ReplyOperation::AddressInfo => 72,
             ReplyOperation::AsyncError => 73,
-        }
+        };
     }
 }
 
