@@ -130,7 +130,7 @@ impl Ipc
 
         match self.write_socket.try_write(buf)
         {
-            Ok(_) => {},
+            Ok(n) => debug!("Successfully wrote {} bytes to mDNSResponder socket", n),
             Err(e) => error!("Failed to write to mDNSResponder socket: {}", e),
         }
     }
