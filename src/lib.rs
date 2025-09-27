@@ -118,6 +118,19 @@ impl MDnsResponder
             .await;
     }
 
+    /// Starts resolving a service with the specified name, type, and domain.
+    ///
+    /// # Arguments
+    ///
+    /// * `service_name` - The name of the service to resolve (e.g., "My Service").
+    /// * `service_type` - The type of service to resolve (e.g., "_http._tcp").
+    /// * `service_domain` - The domain in which to resolve the service (e.g., "local").
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// let context = responder.resolve("My Service", "_http._tcp", "local").await;
+    /// ```
     pub async fn resolve(
         &mut self,
         service_name: &str,
