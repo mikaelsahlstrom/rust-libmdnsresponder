@@ -1,5 +1,5 @@
 use log::{debug, error};
-use std::io;
+use std::{io, net::IpAddr};
 use tokio::net::{
     UnixStream,
     unix::{OwnedReadHalf, OwnedWriteHalf},
@@ -10,7 +10,7 @@ use tokio::task;
 use tokio_util::sync::CancellationToken;
 
 mod header;
-mod operation;
+pub mod operation;
 
 const SOCKET_PATH: &str = "/var/run/mDNSResponder";
 
@@ -223,6 +223,37 @@ impl Ipc
         return header.client_context;
     }
 
+    pub async fn write_addrinfo_request(&mut self, protocol: super::Protocol, hostname: String) -> u64
+    {
+        let request = operation::addrinfo::Request::new(
+            operation::addrinfo::ServiceFlags::none,
+            0, // Interface index, set to 0 for default
+            protocol.into(),
+            hostname,
+        );
+
+        let request_buf = request.to_bytes();
+
+        let header = header::IpcMessageHeader::new(
+            1, // Version
+            request_buf.len() as u32,
+            header::IpcFlags::no_err_sd as u32,
+            header::Operation::Request(header::request::RequestOperation::AddressInfo),
+            rand::random::<u64>(),
+            0, // Registration index, set to 0 for default
+        );
+
+        let header_buf = header.to_bytes();
+
+        let mut buf = Vec::with_capacity(header_buf.len() + request_buf.len());
+        buf.extend_from_slice(&header_buf);
+        buf.extend_from_slice(&request_buf);
+
+        self.write(&buf).await;
+
+        return header.client_context;
+    }
+
     async fn parse_frame(
         buf: &[u8],
         event_sender: &mpsc::Sender<super::MDnsResponderEvent>,
@@ -251,6 +282,11 @@ impl Ipc
                                 event_sender,
                             )
                             .await;
+                        }
+                        header::reply::ReplyOperation::AddressInfo =>
+                        {
+                            return Self::parse_address_info_reply(buf, header.data_length, event_sender)
+                                .await;
                         }
                         _ =>
                         {
@@ -357,6 +393,65 @@ impl Ipc
         {
             // TODO: Better error handling here
             error!("Failed to send service resolved notification: {}", e);
+        }
+
+        return header::IPC_HEADER_SIZE + data_length as usize;
+    }
+
+    async fn parse_address_info_reply(
+        buf: &[u8],
+        data_length: u32,
+        event_sender: &mpsc::Sender<super::MDnsResponderEvent>,
+    ) -> usize
+    {
+        let start_pos = header::IPC_HEADER_SIZE;
+        let stop_pos = start_pos + data_length as usize;
+        let addrinfo_reply = match operation::addrinfo::Reply::from_bytes(&buf[start_pos..stop_pos])
+        {
+            Ok(reply) => reply,
+            Err(e) =>
+            {
+                error!("Failed to parse address info reply: {}", e);
+                return 0;
+            }
+        };
+
+        let ip_addr = match addrinfo_reply.rdata.len()
+        {
+            4 =>
+            {
+                IpAddr::from([
+                    addrinfo_reply.rdata[0],
+                    addrinfo_reply.rdata[1],
+                    addrinfo_reply.rdata[2],
+                    addrinfo_reply.rdata[3],
+                ])
+            }
+            16 =>
+            {
+                let mut octets = [0u8; 16];
+                octets.copy_from_slice(&addrinfo_reply.rdata[..16]);
+                IpAddr::from(octets)
+            }
+            _ =>
+            {
+                error!("Unexpected rdata length for IP address: {}", addrinfo_reply.rdata.len());
+                return 0;
+            }
+        };
+
+        let addr_info = super::AddressInfo
+        {
+            hostname: addrinfo_reply.name,
+            address: ip_addr,
+        };
+
+        if let Err(e) = event_sender
+            .send(super::MDnsResponderEvent::AddressInfoResolved(addr_info))
+            .await
+        {
+            // TODO: Better error handling here
+            error!("Failed to send address info notification: {}", e);
         }
 
         return header::IPC_HEADER_SIZE + data_length as usize;

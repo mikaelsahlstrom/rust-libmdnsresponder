@@ -37,6 +37,11 @@ async fn main()
                     {
                         info!("Service Resolved: {:?}", resolved);
                     }
+                    libmdnsresponder::MDnsResponderEvent::AddressInfoResolved(addr_info) =>
+                    {
+                        info!("Address Info Resolved: {:?}", addr_info);
+                    }
+                    _ => {}
                 }
             }
             _ = tokio::signal::ctrl_c() =>
