@@ -120,7 +120,6 @@ impl Ipc
                         Err(ref e) if e.kind() == io::ErrorKind::WouldBlock =>
                         {
                             debug!("WouldBlock error occurred, socket is not ready for reading");
-                            // TODO: Fix potential busy loop.
                             continue;
                         }
                         Err(e) =>
