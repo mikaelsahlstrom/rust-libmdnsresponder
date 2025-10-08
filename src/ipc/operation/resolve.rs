@@ -125,20 +125,30 @@ impl Reply
         let port = u16::from_be_bytes([buf[offset], buf[offset + 1]]);
         offset += 2;
 
-        if offset + 2 > buf.len()
+        if offset + 2 >= buf.len()
         {
-            return Err("Buffer too short for txtLen".to_string());
+            return Err("Buffer too short for TXT length".to_string());
         }
 
-        let txt_len = u16::from_be_bytes([buf[offset], buf[offset + 1]]) as usize;
+        let txt_len = u16::from_be_bytes([buf[offset], buf[offset + 1]]);
         offset += 2;
 
-        if offset + txt_len > buf.len()
-        {
-            return Err("Buffer too short for txtRData".to_string());
+        // Never trust a length field from an external source.
+        let remaining_bytes = buf.len() - offset;
+        let actual_txt_len = std::cmp::min(txt_len as usize, remaining_bytes);
+
+        if actual_txt_len == 0 {
+            return Ok(Reply
+            {
+                header,
+                full_name,
+                host_target,
+                port,
+                txt_data: Vec::new(),
+            });
         }
 
-        let (txt_data, _) = unpack_txt(&buf[offset..offset + txt_len], 0)?;
+        let (txt_data, _) = unpack_txt(&buf[offset..(offset + actual_txt_len)], 0)?;
 
         return Ok(Reply
         {
