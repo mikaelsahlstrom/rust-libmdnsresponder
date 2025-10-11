@@ -1,13 +1,12 @@
-use log::{debug, error};
+use log::{ debug, error };
 use std::io;
-use tokio::net::{
-    UnixStream,
-    unix::{OwnedReadHalf, OwnedWriteHalf},
-};
+use tokio::net::{ UnixStream, unix::{OwnedReadHalf, OwnedWriteHalf}, };
 use tokio::select;
 use tokio::sync::mpsc;
 use tokio::task;
 use tokio_util::sync::CancellationToken;
+
+use crate::mdnsresponder_error::MDnsResponderError;
 
 mod header;
 mod operation;
@@ -69,6 +68,8 @@ impl Ipc
     {
         debug!("Starting IPC listener for mDNSResponder socket");
 
+        let mut buffer: Vec<u8> = Vec::new();
+
         loop
         {
             select!
@@ -80,8 +81,8 @@ impl Ipc
                 }
                 _ = read.readable() =>
                 {
-                    let mut buf = [0u8; 2048];
-                    match read.try_read(&mut buf)
+                    let mut read_buffer = [0u8; 2048];
+                    match read.try_read(&mut read_buffer)
                     {
                         Ok(0) =>
                         {
@@ -92,17 +93,39 @@ impl Ipc
                         {
                             debug!("Read {} bytes from IPC socket", n);
 
-                            let mut pos = 0;
-                            while pos < n
-                            {
-                                let frame_size = Self::parse_frame(&buf[pos..n], &event_sender).await;
-                                if frame_size == 0
-                                {
-                                    debug!("No more complete frames to parse");
-                                    break;
-                                }
+                            buffer.extend_from_slice(&read_buffer[..n]);
 
-                                pos += frame_size;
+                            // Try to parse as many complete frames as possible.
+                            let mut pos = 0;
+                            while pos < buffer.len()
+                            {
+                                match Self::parse_frame(&buffer[pos..], &event_sender).await
+                                {
+                                    Ok(frame_size) =>
+                                    {
+                                        debug!("Parsed frame of size {}", frame_size);
+                                        pos += frame_size;
+                                    }
+                                    Err(MDnsResponderError::IncompleteFrame) =>
+                                    {
+                                        debug!("Incomplete frame, waiting for more data");
+                                        break;
+                                    }
+                                    Err(e) =>
+                                    {
+                                        error!("Error parsing frame: {}", e);
+                                        // Clear the entire buffer on parsing error
+                                        buffer.clear();
+                                        pos = 0;
+                                        break;
+                                    }
+                                }
+                            }
+
+                            if pos > 0
+                            {
+                                debug!("Processed {} bytes, removing from buffer", pos);
+                                buffer.drain(0..pos);
                             }
                         }
                         Err(ref e) if e.kind() == io::ErrorKind::WouldBlock =>
@@ -121,7 +144,7 @@ impl Ipc
         }
     }
 
-    async fn write(&mut self, buf: &[u8])
+    async fn write(&mut self, buf: &[u8]) -> io::Result<usize>
     {
         self.write_socket
             .writable()
@@ -130,8 +153,16 @@ impl Ipc
 
         match self.write_socket.try_write(buf)
         {
-            Ok(n) => debug!("Successfully wrote {} bytes to mDNSResponder socket", n),
-            Err(e) => error!("Failed to write to mDNSResponder socket: {}", e),
+            Ok(n) =>
+            {
+                debug!("Successfully wrote {} bytes to mDNSResponder socket", n);
+                return Ok(n);
+            }
+            Err(e) =>
+            {
+                error!("Failed to write to mDNSResponder socket: {}", e);
+                return Err(e);
+            }
         }
     }
 
@@ -139,7 +170,7 @@ impl Ipc
         &mut self,
         service_type: String,
         service_domain: String,
-    ) -> u64
+    ) -> Result<u64, io::Error>
     {
         let request = operation::browse::Request::new(
             operation::browse::ServiceFlags::none,
@@ -165,12 +196,12 @@ impl Ipc
         buf.extend_from_slice(&header_buf);
         buf.extend_from_slice(&request_buf);
 
-        self.write(&buf).await;
+        self.write(&buf).await?;
 
-        return header.client_context;
+        return Ok(header.client_context);
     }
 
-    pub async fn write_cancel_request(&mut self, context: u64)
+    pub async fn write_cancel_request(&mut self, context: u64) -> Result<(), io::Error>
     {
         let header = header::IpcMessageHeader::new(
             1, // Version
@@ -183,7 +214,9 @@ impl Ipc
 
         let header_buf = header.to_bytes();
 
-        self.write(&header_buf).await;
+        self.write(&header_buf).await?;
+
+        return Ok(());
     }
 
     pub async fn write_resolve_request(
@@ -191,7 +224,7 @@ impl Ipc
         service_name: String,
         reg_type: String,
         service_domain: String,
-    ) -> u64
+    ) -> Result<u64, io::Error>
     {
         let request = operation::resolve::Request::new(
             operation::resolve::ServiceFlags::none,
@@ -218,15 +251,15 @@ impl Ipc
         buf.extend_from_slice(&header_buf);
         buf.extend_from_slice(&request_buf);
 
-        self.write(&buf).await;
+        self.write(&buf).await?;
 
-        return header.client_context;
+        return Ok(header.client_context);
     }
 
     async fn parse_frame(
         buf: &[u8],
         event_sender: &mpsc::Sender<super::MDnsResponderEvent>,
-    ) -> usize
+    ) -> Result<usize, MDnsResponderError>
     {
         match header::IpcMessageHeader::from(&buf)
         {
@@ -255,20 +288,20 @@ impl Ipc
                         _ =>
                         {
                             debug!("Received other reply operation: {:?}", reply);
-                            return 0;
+                            return Err(MDnsResponderError::FrameParsingFailed);
                         }
                     },
                     _ =>
                     {
                         debug!("Received non-reply IPC message");
-                        return 0;
+                        return Err(MDnsResponderError::FrameParsingFailed);
                     }
                 }
             }
             Err(e) =>
             {
                 error!("Failed to parse IPC message header: {}", e);
-                return 0;
+                return Err(MDnsResponderError::FrameParsingFailed);
             }
         }
     }
@@ -277,17 +310,24 @@ impl Ipc
         buf: &[u8],
         data_length: u32,
         event_sender: &mpsc::Sender<super::MDnsResponderEvent>,
-    ) -> usize
+    ) -> Result<usize, MDnsResponderError>
     {
         let start_pos = header::IPC_HEADER_SIZE;
         let stop_pos = start_pos + data_length as usize;
+
+        if stop_pos > buf.len()
+        {
+            debug!("Incomplete frame (fragmentation): need {} bytes, have {}", stop_pos, buf.len());
+            return Err(MDnsResponderError::IncompleteFrame);
+        }
+
         let browse_reply = match operation::browse::Reply::from_bytes(&buf[start_pos..stop_pos])
         {
             Ok(reply) => reply,
-            Err(e) => {
-                // TODO: Better error handling here
+            Err(e) =>
+            {
                 error!("Failed to parse browse reply: {}", e);
-                return 0;
+                return Err(MDnsResponderError::FrameParsingFailed);
             }
         };
 
@@ -306,7 +346,6 @@ impl Ipc
                 .send(super::MDnsResponderEvent::ServiceAdded(service))
                 .await
             {
-                // TODO: Better error handling here
                 error!("Failed to send service added notification: {}", e);
             }
         }
@@ -316,30 +355,34 @@ impl Ipc
                 .send(super::MDnsResponderEvent::ServiceRemoved(service))
                 .await
             {
-                // TODO: Better error handling here
                 error!("Failed to send service removed notification: {}", e);
             }
         }
 
-        return header::IPC_HEADER_SIZE + data_length as usize;
+        return Ok(header::IPC_HEADER_SIZE + data_length as usize);
     }
 
     async fn parse_resolve_reply(
         buf: &[u8],
         data_length: u32,
         event_sender: &mpsc::Sender<super::MDnsResponderEvent>,
-    ) -> usize
+    ) -> Result<usize, MDnsResponderError>
     {
         let start_pos = header::IPC_HEADER_SIZE;
         let stop_pos = start_pos + data_length as usize;
+
+        if stop_pos > buf.len() {
+            debug!("Incomplete frame (fragmentation): need {} bytes, have {}", stop_pos, buf.len());
+            return Err(MDnsResponderError::IncompleteFrame);
+        }
+
         let resolve_reply = match operation::resolve::Reply::from_bytes(&buf[start_pos..stop_pos])
         {
             Ok(reply) => reply,
             Err(e) =>
             {
-                // TODO: Better error handling here
                 error!("Failed to parse resolve reply: {}", e);
-                return 0;
+                return Err(MDnsResponderError::FrameParsingFailed);
             }
         };
 
@@ -355,10 +398,9 @@ impl Ipc
             .send(super::MDnsResponderEvent::ServiceResolved(resolved))
             .await
         {
-            // TODO: Better error handling here
             error!("Failed to send service resolved notification: {}", e);
         }
 
-        return header::IPC_HEADER_SIZE + data_length as usize;
+        return Ok(header::IPC_HEADER_SIZE + data_length as usize);
     }
 }
