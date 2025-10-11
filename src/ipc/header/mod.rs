@@ -1,5 +1,4 @@
 use core::fmt;
-use log::debug;
 use std::io;
 
 pub mod reply;

@@ -68,8 +68,14 @@ impl MDnsResponder
     ///
     /// # Examples
     ///
-    /// ```rust
-    /// let responder = MDnsResponder::new(10).await?;
+    /// ```rust,no_run
+    /// use libmdnsresponder::MDnsResponder;
+    ///
+    /// #[tokio::main]
+    /// async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    ///     let responder = MDnsResponder::new(10).await?;
+    ///     Ok(())
+    /// }
     /// ```
     pub async fn new(
         channel_buffer_size: usize,
@@ -104,8 +110,15 @@ impl MDnsResponder
     ///
     /// # Examples
     ///
-    /// ```rust
-    /// responder.close().await;
+    /// ```rust,no_run
+    /// use libmdnsresponder::MDnsResponder;
+    ///
+    /// #[tokio::main]
+    /// async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    ///     let responder = MDnsResponder::new(10).await?;
+    ///     responder.close().await;
+    ///     Ok(())
+    /// }
     /// ```
     pub async fn close(self)
     {
@@ -125,32 +138,70 @@ impl MDnsResponder
     ///
     /// # Examples
     ///
-    /// ```rust
-    /// let context = responder.browse("_http._tcp", "local").await;
+    /// ```rust,no_run
+    /// use libmdnsresponder::MDnsResponder;
+    ///
+    /// #[tokio::main]
+    /// async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    ///     let mut responder = MDnsResponder::new(10).await?;
+    ///     let context = responder.browse("_http._tcp".to_string(), "local".to_string()).await;
+    ///     Ok(())
+    /// }
     /// ```
-    pub async fn browse(&mut self, service_type: &str, service_domain: &str) -> u64
+    pub async fn browse(
+        &mut self, service_type: String,
+        service_domain: String
+    ) -> Result<u64, mdnsresponder_error::MDnsResponderError>
     {
-        return self
+        return match self
             .ipc
-            .write_browse_request(service_type.to_string(), service_domain.to_string())
-            .await;
+            .write_browse_request(service_type, service_domain)
+            .await
+        {
+            Ok(context) => Ok(context),
+            Err(e) => Err(mdnsresponder_error::MDnsResponderError::IpcWriteFailed),
+        };
     }
 
+    /// Starts resolving a service with the specified name, type, and domain.
+    ///
+    /// # Arguments
+    ///
+    /// * `service_name` - The name of the service to resolve (e.g., "My Service").
+    /// * `service_type` - The type of service to resolve (e.g., "_http._tcp").
+    /// * `service_domain` - The domain in which to resolve the service (e.g., "local").
+    ///
+    /// # Examples
+    ///
+    /// ```rust,no_run
+    /// use libmdnsresponder::MDnsResponder;
+    ///
+    /// #[tokio::main]
+    /// async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    ///     let mut responder = MDnsResponder::new(10).await?;
+    ///     let context = responder.resolve("My Service".to_string(), "_http._tcp".to_string(), "local".to_string()).await?;
+    ///     Ok(())
+    /// }
+    /// ```
     pub async fn resolve(
         &mut self,
-        service_name: &str,
-        service_type: &str,
-        service_domain: &str,
-    ) -> u64
+        service_name: String,
+        service_type: String,
+        service_domain: String,
+    ) -> Result<u64, mdnsresponder_error::MDnsResponderError>
     {
-        return self
+        return match self
             .ipc
             .write_resolve_request(
-                service_name.to_string(),
-                service_type.to_string(),
-                service_domain.to_string(),
+                service_name,
+                service_type,
+                service_domain,
             )
-            .await;
+            .await
+        {
+            Ok(context) => Ok(context),
+            Err(_) => Err(mdnsresponder_error::MDnsResponderError::IpcWriteFailed),
+        };
     }
 
     /// Resolves the given hostname to its corresponding IP addresses, IPv4, IPv6, or both.
@@ -182,11 +233,23 @@ impl MDnsResponder
     ///
     /// # Examples
     ///
-    /// ```rust
-    /// responder.cancel(context).await;
+    /// ```rust,no_run
+    /// use libmdnsresponder::MDnsResponder;
+    ///
+    /// #[tokio::main]
+    /// async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    ///     let mut responder = MDnsResponder::new(10).await?;
+    ///     let context = responder.browse("_http._tcp".to_string(), "local".to_string()).await?;
+    ///     responder.cancel(context).await?;
+    ///     Ok(())
+    /// }
     /// ```
-    pub async fn cancel(&mut self, context: u64)
+    pub async fn cancel(&mut self, context: u64) -> Result<(), mdnsresponder_error::MDnsResponderError>
     {
-        self.ipc.write_cancel_request(context).await;
+        return match self.ipc.write_cancel_request(context).await
+        {
+            Ok(_) => Ok(()),
+            Err(_) => Err(mdnsresponder_error::MDnsResponderError::IpcWriteFailed),
+        };
     }
 }
