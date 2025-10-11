@@ -217,12 +217,24 @@ impl MDnsResponder
     ///
     /// # Examples
     ///
-    /// ```rust
-    /// let context = responder.get_addr_info("example.local", Protocol::Both).await;
+    /// ```rust,no_run
+    /// use libmdnsresponder::MDnsResponder;
+    ///
+    /// #[tokio::main]
+    /// async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    ///     let mut responder = MDnsResponder::new(10).await?;
+    ///     let context = responder.get_addr_info("example.local".to_string(), Protocol::Both).await?;
+    ///     responder.cancel(context).await?;
+    ///     Ok(())
+    /// }
     /// ```
-    pub async fn get_addr_info(&mut self, hostname: &str, protocol: Protocol) -> u64
+    pub async fn get_addr_info(&mut self, hostname: String, protocol: Protocol) -> Result<u64, mdnsresponder_error::MDnsResponderError>
     {
-        return self.ipc.write_addrinfo_request(protocol, hostname.to_string()).await;
+        return match self.ipc.write_addrinfo_request(protocol, hostname).await
+        {
+            Ok(context) => Ok(context),
+            Err(_) => Err(mdnsresponder_error::MDnsResponderError::IpcWriteFailed),
+        };
     }
 
     /// Cancels an ongoing browse or resolve operation identified by the given context.

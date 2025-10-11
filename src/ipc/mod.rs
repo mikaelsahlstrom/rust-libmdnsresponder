@@ -257,7 +257,11 @@ impl Ipc
         return Ok(header.client_context);
     }
 
-    pub async fn write_addrinfo_request(&mut self, protocol: super::Protocol, hostname: String) -> u64
+    pub async fn write_addrinfo_request(
+        &mut self,
+        protocol: super::Protocol,
+        hostname: String
+    ) -> Result<u64, io::Error>
     {
         let request = operation::addrinfo::Request::new(
             operation::addrinfo::ServiceFlags::none,
@@ -283,9 +287,9 @@ impl Ipc
         buf.extend_from_slice(&header_buf);
         buf.extend_from_slice(&request_buf);
 
-        self.write(&buf).await;
+        self.write(&buf).await?;
 
-        return header.client_context;
+        return Ok(header.client_context);
     }
 
     async fn parse_frame(
