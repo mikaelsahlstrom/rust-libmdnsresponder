@@ -7,6 +7,8 @@ use tokio::sync::mpsc;
 use tokio::task;
 use tokio_util::sync::CancellationToken;
 
+use crate::mdnsresponder_error::MDnsResponderError;
+
 mod header;
 mod operation;
 
@@ -98,14 +100,27 @@ impl Ipc
                             let mut pos = 0;
                             while pos < buffer.len()
                             {
-                                let frame_size = Self::parse_frame(&buffer[pos..], &event_sender).await;
-                                if frame_size == 0
+                                match Self::parse_frame(&buffer[pos..], &event_sender).await
                                 {
-                                    debug!("No more complete frames to parse");
-                                    break;
+                                    Ok(frame_size) =>
+                                    {
+                                        debug!("Parsed frame of size {}", frame_size);
+                                        pos += frame_size;
+                                    }
+                                    Err(MDnsResponderError::IncompleteFrame) =>
+                                    {
+                                        debug!("Incomplete frame, waiting for more data");
+                                        break;
+                                    }
+                                    Err(e) =>
+                                    {
+                                        error!("Error parsing frame: {}", e);
+                                        // Clear the entire buffer on parsing error
+                                        buffer.clear();
+                                        pos = 0;
+                                        break;
+                                    }
                                 }
-
-                                pos += frame_size;
                             }
 
                             if pos > 0
@@ -245,7 +260,7 @@ impl Ipc
     async fn parse_frame(
         buf: &[u8],
         event_sender: &mpsc::Sender<super::MDnsResponderEvent>,
-    ) -> usize
+    ) -> Result<usize, MDnsResponderError>
     {
         match header::IpcMessageHeader::from(&buf)
         {
@@ -274,20 +289,20 @@ impl Ipc
                         _ =>
                         {
                             debug!("Received other reply operation: {:?}", reply);
-                            return 0;
+                            return Err(MDnsResponderError::FrameParsingFailed);
                         }
                     },
                     _ =>
                     {
                         debug!("Received non-reply IPC message");
-                        return 0;
+                        return Err(MDnsResponderError::FrameParsingFailed);
                     }
                 }
             }
             Err(e) =>
             {
                 error!("Failed to parse IPC message header: {}", e);
-                return 0;
+                return Err(MDnsResponderError::FrameParsingFailed);
             }
         }
     }
@@ -296,23 +311,24 @@ impl Ipc
         buf: &[u8],
         data_length: u32,
         event_sender: &mpsc::Sender<super::MDnsResponderEvent>,
-    ) -> usize
+    ) -> Result<usize, MDnsResponderError>
     {
         let start_pos = header::IPC_HEADER_SIZE;
         let stop_pos = start_pos + data_length as usize;
 
-        if stop_pos > buf.len() {
+        if stop_pos > buf.len()
+        {
             debug!("Incomplete frame (fragmentation): need {} bytes, have {}", stop_pos, buf.len());
-            return 0;
+            return Err(MDnsResponderError::IncompleteFrame);
         }
 
         let browse_reply = match operation::browse::Reply::from_bytes(&buf[start_pos..stop_pos])
         {
             Ok(reply) => reply,
-            Err(e) => {
-                // TODO: Better error handling here
+            Err(e) =>
+            {
                 error!("Failed to parse browse reply: {}", e);
-                return 0;
+                return Err(MDnsResponderError::FrameParsingFailed);
             }
         };
 
@@ -331,7 +347,6 @@ impl Ipc
                 .send(super::MDnsResponderEvent::ServiceAdded(service))
                 .await
             {
-                // TODO: Better error handling here
                 error!("Failed to send service added notification: {}", e);
             }
         }
@@ -341,26 +356,25 @@ impl Ipc
                 .send(super::MDnsResponderEvent::ServiceRemoved(service))
                 .await
             {
-                // TODO: Better error handling here
                 error!("Failed to send service removed notification: {}", e);
             }
         }
 
-        return header::IPC_HEADER_SIZE + data_length as usize;
+        return Ok(header::IPC_HEADER_SIZE + data_length as usize);
     }
 
     async fn parse_resolve_reply(
         buf: &[u8],
         data_length: u32,
         event_sender: &mpsc::Sender<super::MDnsResponderEvent>,
-    ) -> usize
+    ) -> Result<usize, MDnsResponderError>
     {
         let start_pos = header::IPC_HEADER_SIZE;
         let stop_pos = start_pos + data_length as usize;
 
         if stop_pos > buf.len() {
             debug!("Incomplete frame (fragmentation): need {} bytes, have {}", stop_pos, buf.len());
-            return 0;
+            return Err(MDnsResponderError::IncompleteFrame);
         }
 
         let resolve_reply = match operation::resolve::Reply::from_bytes(&buf[start_pos..stop_pos])
@@ -368,9 +382,8 @@ impl Ipc
             Ok(reply) => reply,
             Err(e) =>
             {
-                // TODO: Better error handling here
                 error!("Failed to parse resolve reply: {}", e);
-                return 0;
+                return Err(MDnsResponderError::FrameParsingFailed);
             }
         };
 
@@ -386,10 +399,9 @@ impl Ipc
             .send(super::MDnsResponderEvent::ServiceResolved(resolved))
             .await
         {
-            // TODO: Better error handling here
             error!("Failed to send service resolved notification: {}", e);
         }
 
-        return header::IPC_HEADER_SIZE + data_length as usize;
+        return Ok(header::IPC_HEADER_SIZE + data_length as usize);
     }
 }
