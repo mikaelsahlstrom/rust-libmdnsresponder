@@ -161,7 +161,7 @@ impl MDnsResponder
     /// #[tokio::main]
     /// async fn main() -> Result<(), Box<dyn std::error::Error>> {
     ///     let mut responder = MDnsResponder::new(10).await?;
-    ///     let context = responder.resolve("My Service".to_string(), "_http._tcp".to_string(), "local".to_string()).await;
+    ///     let context = responder.resolve("My Service".to_string(), "_http._tcp".to_string(), "local".to_string()).await?;
     ///     Ok(())
     /// }
     /// ```
@@ -200,8 +200,8 @@ impl MDnsResponder
     /// #[tokio::main]
     /// async fn main() -> Result<(), Box<dyn std::error::Error>> {
     ///     let mut responder = MDnsResponder::new(10).await?;
-    ///     let context = responder.browse("_http._tcp".to_string(), "local".to_string()).await;
-    ///     responder.cancel(context).await;
+    ///     let context = responder.browse("_http._tcp".to_string(), "local".to_string()).await?;
+    ///     responder.cancel(context).await?;
     ///     Ok(())
     /// }
     /// ```

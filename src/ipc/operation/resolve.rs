@@ -117,7 +117,7 @@ impl Reply
         let host_target = Self::cstr_from_buf(&buf[offset..]);
         offset += host_target.len() + 1;
 
-        if offset + 2 >= buf.len()
+        if offset + 2 > buf.len()
         {
             return Err("Buffer too short for port".to_string());
         }
@@ -125,7 +125,7 @@ impl Reply
         let port = u16::from_be_bytes([buf[offset], buf[offset + 1]]);
         offset += 2;
 
-        if offset + 2 >= buf.len()
+        if offset + 2 > buf.len()
         {
             return Err("Buffer too short for TXT length".to_string());
         }

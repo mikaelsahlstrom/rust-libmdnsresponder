@@ -1,6 +1,5 @@
 use log::{ debug, error };
 use std::io;
-use rand;
 use tokio::net::{ UnixStream, unix::{OwnedReadHalf, OwnedWriteHalf}, };
 use tokio::select;
 use tokio::sync::mpsc;
