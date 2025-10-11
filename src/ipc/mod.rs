@@ -10,7 +10,7 @@ use tokio_util::sync::CancellationToken;
 use crate::mdnsresponder_error::MDnsResponderError;
 
 mod header;
-pub mod operation;
+mod operation;
 
 const SOCKET_PATH: &str = "/var/run/mDNSResponder";
 
