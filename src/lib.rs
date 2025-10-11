@@ -1,3 +1,5 @@
+use std::net::IpAddr;
+
 use log::error;
 use tokio::sync::mpsc;
 
@@ -22,11 +24,27 @@ pub struct Resolved
 }
 
 #[derive(Debug)]
+pub struct AddressInfo
+{
+    pub hostname: String,
+    pub address: IpAddr,
+}
+
+#[derive(Debug)]
 pub enum MDnsResponderEvent
 {
     ServiceAdded(Service),
     ServiceRemoved(Service),
     ServiceResolved(Resolved),
+    AddressInfoResolved(AddressInfo),
+}
+
+#[derive(Debug)]
+pub enum Protocol
+{
+    IPv4,
+    IPv6,
+    Both,
 }
 
 pub struct MDnsResponder
@@ -180,6 +198,39 @@ impl MDnsResponder
                 service_domain,
             )
             .await
+        {
+            Ok(context) => Ok(context),
+            Err(_) => Err(mdnsresponder_error::MDnsResponderError::IpcWriteFailed),
+        };
+    }
+
+    /// Resolves the given hostname to its corresponding IP addresses, IPv4, IPv6, or both.
+    ///
+    /// # Arguments
+    ///
+    /// * `hostname` - The hostname to resolve (e.g., "example.local").
+    /// * `protocol` - The protocol to use for resolution (IPv4, IPv6, or Both).
+    ///
+    /// # Returns
+    ///
+    /// Returns a unique context identifier for the address info request.
+    ///
+    /// # Examples
+    ///
+    /// ```rust,no_run
+    /// use libmdnsresponder::MDnsResponder;
+    ///
+    /// #[tokio::main]
+    /// async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    ///     let mut responder = MDnsResponder::new(10).await?;
+    ///     let context = responder.get_addr_info("example.local".to_string(), Protocol::Both).await?;
+    ///     responder.cancel(context).await?;
+    ///     Ok(())
+    /// }
+    /// ```
+    pub async fn get_addr_info(&mut self, hostname: String, protocol: Protocol) -> Result<u64, mdnsresponder_error::MDnsResponderError>
+    {
+        return match self.ipc.write_addrinfo_request(protocol, hostname).await
         {
             Ok(context) => Ok(context),
             Err(_) => Err(mdnsresponder_error::MDnsResponderError::IpcWriteFailed),
