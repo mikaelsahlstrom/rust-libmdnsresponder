@@ -2,13 +2,13 @@
 #[derive(Copy, Clone, Debug)]
 pub enum ServiceFlags
 {
-    none = 0x0,
-    auto_trigger = 0x1,
-    add = 0x2,
-    default = 0x3,
-    force_multicast = 0x400,
-    include_p2p = 0x20000,
-    include_awdl = 0x100000,
+    None = 0x0,
+    AutoTrigger = 0x1,
+    Add = 0x2,
+    Default = 0x3,
+    ForceMulticast = 0x400,
+    IncludeP2p = 0x20000,
+    IncludeAwdl = 0x100000,
 }
 
 pub struct Request
@@ -107,6 +107,6 @@ impl Reply
 
     pub fn is_add(&self) -> bool
     {
-        return self.header.flags.contains(&super::ReplyFlags::add);
+        return self.header.flags.contains(&super::ReplyFlags::Add);
     }
 }

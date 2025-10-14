@@ -13,9 +13,9 @@ pub enum Operation
 
 pub enum IpcFlags
 {
-    no_reply = 0x0,
-    trailing_tlvs = 0x2,
-    no_err_sd = 0x4,
+    NoReply = 0x0,
+    TrailingTlvs = 0x2,
+    NoErrSd = 0x4,
 }
 
 pub const IPC_HEADER_SIZE: usize = 28;

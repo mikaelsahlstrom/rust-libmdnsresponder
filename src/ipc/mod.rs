@@ -174,7 +174,7 @@ impl Ipc
     ) -> Result<u64, io::Error>
     {
         let request = operation::browse::Request::new(
-            operation::browse::ServiceFlags::none,
+            operation::browse::ServiceFlags::None,
             0, // Interface index, set to 0 for default
             service_type,
             service_domain,
@@ -185,7 +185,7 @@ impl Ipc
         let header = header::IpcMessageHeader::new(
             1, // Version
             request_buf.len() as u32,
-            header::IpcFlags::no_err_sd as u32,
+            header::IpcFlags::NoErrSd as u32,
             header::Operation::Request(header::request::RequestOperation::Browse),
             rand::random::<u64>(),
             0, // Registration index, set to 0 for default
@@ -207,7 +207,7 @@ impl Ipc
         let header = header::IpcMessageHeader::new(
             1, // Version
             0, // No data
-            header::IpcFlags::no_err_sd as u32,
+            header::IpcFlags::NoErrSd as u32,
             header::Operation::Request(header::request::RequestOperation::Cancel),
             context,
             0, // Registration index, set to 0 for default
@@ -228,7 +228,7 @@ impl Ipc
     ) -> Result<u64, io::Error>
     {
         let request = operation::resolve::Request::new(
-            operation::resolve::ServiceFlags::none,
+            operation::resolve::ServiceFlags::None,
             0, // Interface index, set to 0 for default
             service_name,
             reg_type,
@@ -240,7 +240,7 @@ impl Ipc
         let header = header::IpcMessageHeader::new(
             1, // Version
             request_buf.len() as u32,
-            header::IpcFlags::no_err_sd as u32,
+            header::IpcFlags::NoErrSd as u32,
             header::Operation::Request(header::request::RequestOperation::Resolve),
             rand::random::<u64>(),
             0, // Registration index, set to 0 for default
@@ -264,7 +264,7 @@ impl Ipc
     ) -> Result<u64, io::Error>
     {
         let request = operation::addrinfo::Request::new(
-            operation::addrinfo::ServiceFlags::none,
+            operation::addrinfo::ServiceFlags::None,
             0, // Interface index, set to 0 for default
             protocol.into(),
             hostname,
@@ -275,8 +275,52 @@ impl Ipc
         let header = header::IpcMessageHeader::new(
             1, // Version
             request_buf.len() as u32,
-            header::IpcFlags::no_err_sd as u32,
+            header::IpcFlags::NoErrSd as u32,
             header::Operation::Request(header::request::RequestOperation::AddressInfo),
+            rand::random::<u64>(),
+            0, // Registration index, set to 0 for default
+        );
+
+        let header_buf = header.to_bytes();
+
+        let mut buf = Vec::with_capacity(header_buf.len() + request_buf.len());
+        buf.extend_from_slice(&header_buf);
+        buf.extend_from_slice(&request_buf);
+
+        self.write(&buf).await?;
+
+        return Ok(header.client_context);
+    }
+
+    pub async fn write_register_request(
+        &mut self,
+        interface_index: u32,
+        name: String,
+        service_type: String,
+        domain: String,
+        host: String,
+        port: u16,
+        txt_data: Vec<String>
+    ) -> Result<u64, io::Error>
+    {
+        let request = operation::publish::Request::new(
+            operation::publish::ServiceFlags::None,
+            interface_index,
+            name,
+            service_type,
+            domain,
+            host,
+            port,
+            txt_data
+        );
+
+        let request_buf = request.to_bytes();
+
+        let header = header::IpcMessageHeader::new(
+            1, // Version
+            request_buf.len() as u32,
+            header::IpcFlags::NoErrSd as u32,
+            header::Operation::Request(header::request::RequestOperation::RegisterService),
             rand::random::<u64>(),
             0, // Registration index, set to 0 for default
         );
@@ -324,6 +368,11 @@ impl Ipc
                         header::reply::ReplyOperation::AddressInfo =>
                         {
                             return Self::parse_address_info_reply(buf, header.data_length, event_sender)
+                                .await;
+                        }
+                        header::reply::ReplyOperation::RegisterService =>
+                        {
+                            return Self::parse_register_service_reply(buf, header.data_length)
                                 .await;
                         }
                         _ =>
@@ -506,6 +555,33 @@ impl Ipc
         {
             error!("Failed to send address info notification: {}", e);
         }
+
+        return Ok(header::IPC_HEADER_SIZE + data_length as usize);
+    }
+
+    async fn parse_register_service_reply(
+        buf: &[u8],
+        data_length: u32,
+    ) -> Result<usize, InternalError>
+    {
+        let start_pos = header::IPC_HEADER_SIZE;
+        let stop_pos = start_pos + data_length as usize;
+
+        if stop_pos > buf.len()
+        {
+            debug!("Incomplete frame (fragmentation): need {} bytes, have {}", stop_pos, buf.len());
+            return Err(InternalError::IncompleteFrame);
+        }
+
+        match operation::publish::Reply::from_bytes(&buf[start_pos..stop_pos])
+        {
+            Ok(reply) => reply,
+            Err(e) =>
+            {
+                error!("Failed to parse register service reply: {}", e);
+                return Err(InternalError::FrameParsingFailed);
+            }
+        };
 
         return Ok(header::IPC_HEADER_SIZE + data_length as usize);
     }
