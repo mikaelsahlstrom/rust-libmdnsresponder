@@ -6,6 +6,8 @@ use tokio::sync::mpsc;
 mod ipc;
 mod mdnsresponder_error;
 
+pub use mdnsresponder_error::MDnsResponderError;
+
 #[derive(Debug)]
 pub struct Service
 {
