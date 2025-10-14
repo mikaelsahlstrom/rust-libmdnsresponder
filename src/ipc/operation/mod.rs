@@ -1,7 +1,7 @@
 pub mod browse;
 pub mod resolve;
 pub mod addrinfo;
-pub mod publish;
+pub mod register;
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum ReplyFlags

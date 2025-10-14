@@ -303,8 +303,8 @@ impl Ipc
         txt_data: Vec<String>
     ) -> Result<u64, io::Error>
     {
-        let request = operation::publish::Request::new(
-            operation::publish::ServiceFlags::None,
+        let request = operation::register::Request::new(
+            operation::register::ServiceFlags::None,
             interface_index,
             name,
             service_type,
@@ -573,7 +573,7 @@ impl Ipc
             return Err(InternalError::IncompleteFrame);
         }
 
-        match operation::publish::Reply::from_bytes(&buf[start_pos..stop_pos])
+        match operation::register::Reply::from_bytes(&buf[start_pos..stop_pos])
         {
             Ok(reply) => reply,
             Err(e) =>
