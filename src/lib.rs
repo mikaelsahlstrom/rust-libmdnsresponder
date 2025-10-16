@@ -266,4 +266,50 @@ impl MDnsResponder
             Err(_) => Err(mdnsresponder_error::MDnsResponderError::IpcWriteFailed),
         };
     }
+
+    /// Registers a service with the specified parameters.
+    ///
+    /// # Arguments
+    ///
+    /// * `interface_index` - The index of the network interface to use for registration, 0 for all interfaces.
+    /// * `name` - The name of the service to register (e.g., "My Service").
+    /// * `service_type` - The type of service to register (e.g., "_http._tcp").
+    /// * `domain` - The domain in which to register the service (e.g., "local").
+    /// * `host` - The hostname of the service (e.g., "myhost.local"), empty string for this host.
+    /// * `port` - The port number on which the service is available.
+    /// * `txt_data` - A vector of strings representing the TXT records associated with the service.
+    ///
+    /// # Returns
+    ///
+    /// Returns a unique context identifier for the registration request.
+    ///
+    /// # Examples
+    ///
+    /// ```rust,no_run
+    /// use libmdnsresponder::MDnsResponder;
+    ///
+    /// #[tokio::main]
+    /// async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    ///     let mut responder = MDnsResponder::new(10).await?;
+    ///     let context = responder.register(0, "My Service".to_string(), "_http._tcp".to_string(), "local".to_string(), "myhost.local".to_string(), 8080, vec!["key=value".to_string()]).await?;
+    ///     Ok(())
+    /// }
+    /// ```
+    pub async fn register(
+        &mut self,
+        interface_index: u32,
+        name: String,
+        service_type: String,
+        domain: String,
+        host: String,
+        port: u16,
+        txt_data: Vec<String>
+    ) -> Result<u64, mdnsresponder_error::MDnsResponderError>
+    {
+        return match self.ipc.write_register_request(interface_index, name, service_type, domain, host, port, txt_data).await
+        {
+            Ok(context) => Ok(context),
+            Err(_) => Err(mdnsresponder_error::MDnsResponderError::IpcWriteFailed),
+        };
+    }
 }

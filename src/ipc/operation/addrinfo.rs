@@ -1,15 +1,4 @@
-#[repr(u32)]
-#[derive(Copy, Clone, Debug)]
-pub enum ServiceFlags
-{
-    none = 0x0,
-    auto_trigger = 0x1,
-    add = 0x2,
-    default = 0x3,
-    force_multicast = 0x400,
-    include_p2p = 0x20000,
-    include_awdl = 0x100000,
-}
+use super::ServiceFlags;
 
 #[repr(u32)]
 #[derive(Copy, Clone, Debug)]
@@ -112,7 +101,6 @@ impl Reply
             buf[offset + 2],
             buf[offset + 3],
         ]);
-        offset += 4;
 
         return Ok(Reply
         {

@@ -18,18 +18,7 @@ const ESCAPED_BYTE_LARGE: &str = "\\127\\128\\129\
      \\240\\241\\242\\243\\244\\245\\246\\247\\248\\249\
      \\250\\251\\252\\253\\254\\255";
 
-#[repr(u32)]
-#[derive(Copy, Clone, Debug)]
-pub enum ServiceFlags
-{
-    none = 0x0,
-    auto_trigger = 0x1,
-    add = 0x2,
-    default = 0x3,
-    force_multicast = 0x400,
-    include_p2p = 0x20000,
-    include_awdl = 0x100000,
-}
+use super::ServiceFlags;
 
 pub struct Request
 {

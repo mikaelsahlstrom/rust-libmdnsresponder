@@ -1,13 +1,27 @@
 pub mod browse;
 pub mod resolve;
 pub mod addrinfo;
+pub mod register;
+
+#[repr(u32)]
+#[derive(Copy, Clone, Debug)]
+pub enum ServiceFlags
+{
+    None = 0x0,
+    AutoTrigger = 0x1,
+    Add = 0x2,
+    Default = 0x3,
+    ForceMulticast = 0x400,
+    IncludeP2p = 0x20000,
+    IncludeAwdl = 0x100000,
+}
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum ReplyFlags
 {
-    more_coming = 0x1,
-    add = 0x2,
-    threshold_reached = 0x2000000,
+    MoreComing = 0x1,
+    Add = 0x2,
+    ThresholdReached = 0x2000000,
 }
 
 #[derive(Debug)]
@@ -24,19 +38,19 @@ impl ReplyFlags
     {
         let mut flags = Vec::new();
 
-        if value & (ReplyFlags::more_coming as u32) != 0
+        if value & (ReplyFlags::MoreComing as u32) != 0
         {
-            flags.push(ReplyFlags::more_coming);
+            flags.push(ReplyFlags::MoreComing);
         }
 
-        if value & (ReplyFlags::add as u32) != 0
+        if value & (ReplyFlags::Add as u32) != 0
         {
-            flags.push(ReplyFlags::add);
+            flags.push(ReplyFlags::Add);
         }
 
-        if value & (ReplyFlags::threshold_reached as u32) != 0
+        if value & (ReplyFlags::ThresholdReached as u32) != 0
         {
-            flags.push(ReplyFlags::threshold_reached);
+            flags.push(ReplyFlags::ThresholdReached);
         }
 
         return flags;
