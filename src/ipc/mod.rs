@@ -174,7 +174,7 @@ impl Ipc
     ) -> Result<u64, io::Error>
     {
         let request = operation::browse::Request::new(
-            operation::browse::ServiceFlags::None,
+            operation::ServiceFlags::None,
             0, // Interface index, set to 0 for default
             service_type,
             service_domain,
@@ -228,7 +228,7 @@ impl Ipc
     ) -> Result<u64, io::Error>
     {
         let request = operation::resolve::Request::new(
-            operation::resolve::ServiceFlags::None,
+            operation::ServiceFlags::None,
             0, // Interface index, set to 0 for default
             service_name,
             reg_type,
@@ -264,7 +264,7 @@ impl Ipc
     ) -> Result<u64, io::Error>
     {
         let request = operation::addrinfo::Request::new(
-            operation::addrinfo::ServiceFlags::None,
+            operation::ServiceFlags::None,
             0, // Interface index, set to 0 for default
             protocol.into(),
             hostname,
@@ -304,7 +304,7 @@ impl Ipc
     ) -> Result<u64, io::Error>
     {
         let request = operation::register::Request::new(
-            operation::register::ServiceFlags::None,
+            operation::ServiceFlags::None,
             interface_index,
             name,
             service_type,

@@ -1,15 +1,4 @@
-#[repr(u32)]
-#[derive(Copy, Clone, Debug)]
-pub enum ServiceFlags
-{
-    None = 0x0,
-    AutoTrigger = 0x1,
-    Add = 0x2,
-    Default = 0x3,
-    ForceMulticast = 0x400,
-    IncludeP2p = 0x20000,
-    IncludeAwdl = 0x100000,
-}
+use super::ServiceFlags;
 
 pub struct Request
 {

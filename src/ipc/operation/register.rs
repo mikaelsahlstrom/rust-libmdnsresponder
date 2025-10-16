@@ -1,15 +1,4 @@
-#[repr(u32)]
-#[derive(Copy, Clone, Debug)]
-pub enum ServiceFlags
-{
-    None = 0x0,
-    AutoTrigger = 0x1,
-    Add = 0x2,
-    Default = 0x3,
-    ForceMulticast = 0x400,
-    IncludeP2p = 0x20000,
-    IncludeAwdl = 0x100000,
-}
+use super::ServiceFlags;
 
 pub struct Request
 {
@@ -76,7 +65,7 @@ impl Request
 
         buf.extend_from_slice(&self.port.to_be_bytes());
 
-        let txt_len: u16 = self.txt_data.iter().map(|s| s.len() + 1).sum::<usize>() as u16;
+        let txt_len: u16 = self.txt_data.iter().map(|s| s.len() as u16 + 1).sum();
         buf.extend_from_slice(&txt_len.to_be_bytes());
 
         for txt in &self.txt_data
