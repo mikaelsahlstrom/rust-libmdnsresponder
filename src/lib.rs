@@ -71,7 +71,7 @@ impl MDnsResponder
     /// # Examples
     ///
     /// ```rust,no_run
-    /// use libmdnsresponder::MDnsResponder;
+    /// use mdnsresponder::MDnsResponder;
     ///
     /// #[tokio::main]
     /// async fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -113,7 +113,7 @@ impl MDnsResponder
     /// # Examples
     ///
     /// ```rust,no_run
-    /// use libmdnsresponder::MDnsResponder;
+    /// use mdnsresponder::MDnsResponder;
     ///
     /// #[tokio::main]
     /// async fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -141,7 +141,7 @@ impl MDnsResponder
     /// # Examples
     ///
     /// ```rust,no_run
-    /// use libmdnsresponder::MDnsResponder;
+    /// use mdnsresponder::MDnsResponder;
     ///
     /// #[tokio::main]
     /// async fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -176,7 +176,7 @@ impl MDnsResponder
     /// # Examples
     ///
     /// ```rust,no_run
-    /// use libmdnsresponder::MDnsResponder;
+    /// use mdnsresponder::MDnsResponder;
     ///
     /// #[tokio::main]
     /// async fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -220,12 +220,12 @@ impl MDnsResponder
     /// # Examples
     ///
     /// ```rust,no_run
-    /// use libmdnsresponder::MDnsResponder;
+    /// use mdnsresponder::MDnsResponder;
     ///
     /// #[tokio::main]
     /// async fn main() -> Result<(), Box<dyn std::error::Error>> {
     ///     let mut responder = MDnsResponder::new(10).await?;
-    ///     let context = responder.get_addr_info("example.local".to_string(), Protocol::Both).await?;
+    ///     let context = responder.get_addr_info("example.local".to_string(), mdnsresponder::Protocol::Both).await?;
     ///     responder.cancel(context).await?;
     ///     Ok(())
     /// }
@@ -248,7 +248,7 @@ impl MDnsResponder
     /// # Examples
     ///
     /// ```rust,no_run
-    /// use libmdnsresponder::MDnsResponder;
+    /// use mdnsresponder::MDnsResponder;
     ///
     /// #[tokio::main]
     /// async fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -286,7 +286,7 @@ impl MDnsResponder
     /// # Examples
     ///
     /// ```rust,no_run
-    /// use libmdnsresponder::MDnsResponder;
+    /// use mdnsresponder::MDnsResponder;
     ///
     /// #[tokio::main]
     /// async fn main() -> Result<(), Box<dyn std::error::Error>> {
