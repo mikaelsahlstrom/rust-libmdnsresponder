@@ -96,38 +96,10 @@ impl Ipc
 
                             buffer.extend_from_slice(&read_buffer[..n]);
 
-                            // Try to parse as many complete frames as possible.
-                            let mut pos = 0;
-                            while pos < buffer.len()
-                            {
-                                match Self::parse_frame(&buffer[pos..], &event_sender).await
-                                {
-                                    Ok(frame_size) =>
-                                    {
-                                        debug!("Parsed frame of size {}", frame_size);
-                                        pos += frame_size;
-                                    }
-                                    Err(InternalError::IncompleteFrame) =>
-                                    {
-                                        debug!("Incomplete frame, waiting for more data");
-                                        break;
-                                    }
-                                    Err(e) =>
-                                    {
-                                        error!("Error parsing frame: {}", e);
-                                        // Clear the entire buffer on parsing error
-                                        buffer.clear();
-                                        pos = 0;
-                                        break;
-                                    }
-                                }
-                            }
+                            debug!("{}", hex::encode(&buffer));
 
-                            if pos > 0
-                            {
-                                debug!("Processed {} bytes, removing from buffer", pos);
-                                buffer.drain(0..pos);
-                            }
+                            // Try to parse as many complete frames as possible.
+                            Self::try_parse_frame(&event_sender, &mut buffer).await;
                         }
                         Err(ref e) if e.kind() == io::ErrorKind::WouldBlock =>
                         {
@@ -142,6 +114,43 @@ impl Ipc
                     }
                 }
             }
+        }
+    }
+
+    async fn try_parse_frame(
+        event_sender: &mpsc::Sender<super::MDnsResponderEvent>,
+        buffer: &mut Vec<u8>)
+    {
+        let mut pos = 0;
+        while pos < buffer.len()
+        {
+            match Self::parse_frame(&buffer[pos..], &event_sender).await
+            {
+                Ok(frame_size) =>
+                {
+                    debug!("Parsed frame of size {}", frame_size);
+                    pos += frame_size;
+                }
+                Err(InternalError::IncompleteFrame) =>
+                {
+                    debug!("Incomplete frame, waiting for more data");
+                    break;
+                }
+                Err(e) =>
+                {
+                    error!("Error parsing frame: {}", e);
+                    // Clear the entire buffer on parsing error
+                    buffer.clear();
+                    pos = 0;
+                    break;
+                }
+            }
+        }
+
+        if pos > 0
+        {
+            debug!("Processed {} bytes, removing from buffer", pos);
+            buffer.drain(0..pos);
         }
     }
 
@@ -387,6 +396,11 @@ impl Ipc
                         return Err(InternalError::FrameParsingFailed);
                     }
                 }
+            }
+            Err(InternalError::IncompleteFrame) =>
+            {
+                debug!("Incomplete frame (fragmentation)");
+                return Err(InternalError::IncompleteFrame);
             }
             Err(e) =>
             {
