@@ -11,6 +11,7 @@ pub use mdnsresponder_error::MDnsResponderError;
 #[derive(Debug)]
 pub struct Service
 {
+    pub interface_index: u32,
     pub name: String,
     pub service_type: String,
     pub domain: String,
@@ -19,6 +20,7 @@ pub struct Service
 #[derive(Debug)]
 pub struct Resolved
 {
+    pub interface_index: u32,
     pub full_name: String,
     pub host_target: String,
     pub port: u16,
@@ -28,6 +30,7 @@ pub struct Resolved
 #[derive(Debug)]
 pub struct AddressInfo
 {
+    pub interface_index: u32,
     pub hostname: String,
     pub address: IpAddr,
 }
@@ -146,18 +149,20 @@ impl MDnsResponder
     /// #[tokio::main]
     /// async fn main() -> Result<(), Box<dyn std::error::Error>> {
     ///     let mut responder = MDnsResponder::new(10).await?;
-    ///     let context = responder.browse("_http._tcp".to_string(), "local".to_string()).await;
+    ///     let context = responder.browse(0, "_http._tcp".to_string(), "local".to_string()).await;
     ///     Ok(())
     /// }
     /// ```
     pub async fn browse(
-        &mut self, service_type: String,
+        &mut self,
+        interface_index: u32,
+        service_type: String,
         service_domain: String
     ) -> Result<u64, mdnsresponder_error::MDnsResponderError>
     {
         return match self
             .ipc
-            .write_browse_request(service_type, service_domain)
+            .write_browse_request(interface_index, service_type, service_domain)
             .await
         {
             Ok(context) => Ok(context),
@@ -181,12 +186,13 @@ impl MDnsResponder
     /// #[tokio::main]
     /// async fn main() -> Result<(), Box<dyn std::error::Error>> {
     ///     let mut responder = MDnsResponder::new(10).await?;
-    ///     let context = responder.resolve("My Service".to_string(), "_http._tcp".to_string(), "local".to_string()).await?;
+    ///     let context = responder.resolve(0, "My Service".to_string(), "_http._tcp".to_string(), "local".to_string()).await?;
     ///     Ok(())
     /// }
     /// ```
     pub async fn resolve(
         &mut self,
+        interface_index: u32,
         service_name: String,
         service_type: String,
         service_domain: String,
@@ -195,6 +201,7 @@ impl MDnsResponder
         return match self
             .ipc
             .write_resolve_request(
+                interface_index,
                 service_name,
                 service_type,
                 service_domain,
@@ -225,14 +232,19 @@ impl MDnsResponder
     /// #[tokio::main]
     /// async fn main() -> Result<(), Box<dyn std::error::Error>> {
     ///     let mut responder = MDnsResponder::new(10).await?;
-    ///     let context = responder.get_addr_info("example.local".to_string(), mdnsresponder::Protocol::Both).await?;
+    ///     let context = responder.get_addr_info(0, "example.local".to_string(), mdnsresponder::Protocol::Both).await?;
     ///     responder.cancel(context).await?;
     ///     Ok(())
     /// }
     /// ```
-    pub async fn get_addr_info(&mut self, hostname: String, protocol: Protocol) -> Result<u64, mdnsresponder_error::MDnsResponderError>
+    pub async fn get_addr_info(
+        &mut self,
+        interface_index: u32,
+        hostname: String,
+        protocol: Protocol
+    ) -> Result<u64, mdnsresponder_error::MDnsResponderError>
     {
-        return match self.ipc.write_addrinfo_request(protocol, hostname).await
+        return match self.ipc.write_addrinfo_request(interface_index, protocol, hostname).await
         {
             Ok(context) => Ok(context),
             Err(_) => Err(mdnsresponder_error::MDnsResponderError::IpcWriteFailed),

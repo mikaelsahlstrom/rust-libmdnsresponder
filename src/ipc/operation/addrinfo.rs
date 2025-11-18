@@ -17,6 +17,7 @@ pub struct Request
     hostname: String,
 }
 
+#[derive(Debug)]
 pub struct Reply
 {
     pub header: super::ReplyHeader,

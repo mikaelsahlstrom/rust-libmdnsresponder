@@ -178,13 +178,14 @@ impl Ipc
 
     pub async fn write_browse_request(
         &mut self,
+        interface_index: u32,
         service_type: String,
         service_domain: String,
     ) -> Result<u64, io::Error>
     {
         let request = operation::browse::Request::new(
             operation::ServiceFlags::None,
-            0, // Interface index, set to 0 for default
+            interface_index,
             service_type,
             service_domain,
         );
@@ -231,6 +232,7 @@ impl Ipc
 
     pub async fn write_resolve_request(
         &mut self,
+        interface_index: u32,
         service_name: String,
         reg_type: String,
         service_domain: String,
@@ -238,7 +240,7 @@ impl Ipc
     {
         let request = operation::resolve::Request::new(
             operation::ServiceFlags::None,
-            0, // Interface index, set to 0 for default
+            interface_index,
             service_name,
             reg_type,
             service_domain,
@@ -268,13 +270,14 @@ impl Ipc
 
     pub async fn write_addrinfo_request(
         &mut self,
+        interface_index: u32,
         protocol: super::Protocol,
         hostname: String
     ) -> Result<u64, io::Error>
     {
         let request = operation::addrinfo::Request::new(
             operation::ServiceFlags::None,
-            0, // Interface index, set to 0 for default
+            interface_index,
             protocol.into(),
             hostname,
         );
@@ -439,6 +442,7 @@ impl Ipc
 
         let service = super::Service
         {
+            interface_index: browse_reply.header.interface_index,
             name: browse_reply.service_name,
             service_type: browse_reply.service_type,
             domain: browse_reply.service_domain,
@@ -490,8 +494,11 @@ impl Ipc
             }
         };
 
+        debug!("Parsed resolve reply: {:?}", resolve_reply);
+
         let resolved = super::Resolved
         {
+            interface_index: resolve_reply.header.interface_index,
             full_name: resolve_reply.full_name,
             host_target: resolve_reply.host_target,
             port: resolve_reply.port,
@@ -533,6 +540,8 @@ impl Ipc
             }
         };
 
+        debug!("Parsed address info reply: {:?}", addrinfo_reply);
+
         let ip_addr = match addrinfo_reply.rdata.len()
         {
             4 =>
@@ -559,6 +568,7 @@ impl Ipc
 
         let addr_info = super::AddressInfo
         {
+            interface_index: addrinfo_reply.header.interface_index,
             hostname: addrinfo_reply.name,
             address: ip_addr,
         };
