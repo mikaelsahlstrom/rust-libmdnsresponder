@@ -28,7 +28,7 @@ pub enum ReplyFlags
 pub struct ReplyHeader
 {
     flags: Vec<ReplyFlags>,
-    interface_index: u32,
+    pub interface_index: u32,
     error: u32,
 }
 
