@@ -1,5 +1,6 @@
 use core::fmt;
-use std::io;
+
+use crate::mdnsresponder_error::InternalError;
 
 pub mod reply;
 pub mod request;
@@ -13,8 +14,8 @@ pub enum Operation
 
 pub enum IpcFlags
 {
-    NoReply = 0x0,
-    TrailingTlvs = 0x2,
+    _NoReply = 0x0,
+    _TrailingTlvs = 0x2,
     NoErrSd = 0x4,
 }
 
@@ -32,14 +33,11 @@ pub struct IpcMessageHeader
 
 impl IpcMessageHeader
 {
-    pub fn from(buf: &[u8]) -> io::Result<Self>
+    pub fn from(buf: &[u8]) -> Result<Self, InternalError>
     {
         if buf.len() < IPC_HEADER_SIZE
         {
-            return Err(io::Error::new(
-                io::ErrorKind::InvalidData,
-                "Buffer too short for IPC message header",
-            ));
+            return Err(InternalError::IncompleteFrame);
         }
 
         let version = u32::from_be_bytes(buf[0..4].try_into().unwrap());
@@ -52,23 +50,19 @@ impl IpcMessageHeader
         let operation;
         if operation_num >= reply::REPLY_OPERATION_START
         {
-            let reply_operation =
-                reply::ReplyOperation::from_u32(operation_num).ok_or_else(||
-                    {
-                        io::Error::new(io::ErrorKind::InvalidData, "Invalid reply operation")
-                    }
-                )?;
-            operation = Operation::Reply(reply_operation);
+            operation = Operation::Reply(match reply::ReplyOperation::from_u32(operation_num)
+            {
+                Some(op) => op,
+                None => return Err(InternalError::FrameParsingFailed),
+            });
         }
         else
         {
-            let request_operation =
-                request::RequestOperation::from_u32(operation_num).ok_or_else(||
-                    {
-                        io::Error::new(io::ErrorKind::InvalidData, "Invalid request operation")
-                    }
-                )?;
-            operation = Operation::Request(request_operation);
+            operation = Operation::Request(match request::RequestOperation::from_u32(operation_num)
+            {
+                Some(op) => op,
+                None => return Err(InternalError::FrameParsingFailed),
+            });
         }
 
         return Ok(IpcMessageHeader
