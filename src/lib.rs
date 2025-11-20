@@ -166,7 +166,7 @@ impl MDnsResponder
             .await
         {
             Ok(context) => Ok(context),
-            Err(e) => Err(mdnsresponder_error::MDnsResponderError::IpcWriteFailed),
+            Err(_) => Err(mdnsresponder_error::MDnsResponderError::IpcWriteFailed),
         };
     }
 

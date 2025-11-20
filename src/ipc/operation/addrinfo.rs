@@ -22,11 +22,11 @@ pub struct Reply
 {
     pub header: super::ReplyHeader,
     pub name: String,
-    pub rrtype: u16,
-    pub rrclass: u16,
-    pub rdlen: u16,
+    pub _rrtype: u16,
+    pub _rrclass: u16,
+    pub _rdlen: u16,
     pub rdata: Vec<u8>,
-    pub ttl: u32,
+    pub _ttl: u32,
 }
 
 impl Request
@@ -107,11 +107,11 @@ impl Reply
         {
             header,
             name,
-            rrtype,
-            rrclass,
-            rdlen,
-            rdata,
-            ttl,
+            _rrtype: rrtype,
+            _rrclass: rrclass,
+            _rdlen: rdlen,
+            rdata: rdata,
+            _ttl: ttl,
         });
     }
 }

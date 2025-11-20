@@ -8,12 +8,12 @@ pub mod register;
 pub enum ServiceFlags
 {
     None = 0x0,
-    AutoTrigger = 0x1,
-    Add = 0x2,
-    Default = 0x3,
-    ForceMulticast = 0x400,
-    IncludeP2p = 0x20000,
-    IncludeAwdl = 0x100000,
+    _AutoTrigger = 0x1,
+    _Add = 0x2,
+    _Default = 0x3,
+    _ForceMulticast = 0x400,
+    _IncludeP2p = 0x20000,
+    _IncludeAwdl = 0x100000,
 }
 
 #[derive(Debug, PartialEq, Eq)]
@@ -29,7 +29,7 @@ pub struct ReplyHeader
 {
     flags: Vec<ReplyFlags>,
     pub interface_index: u32,
-    error: u32,
+    _error: u32,
 }
 
 impl ReplyFlags
@@ -74,7 +74,7 @@ impl ReplyHeader
         {
             flags,
             interface_index,
-            error,
+            _error: error,
         });
     }
 }

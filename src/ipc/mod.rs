@@ -92,11 +92,7 @@ impl Ipc
                         }
                         Ok(n) =>
                         {
-                            debug!("Read {} bytes from IPC socket", n);
-
                             buffer.extend_from_slice(&read_buffer[..n]);
-
-                            debug!("{}", hex::encode(&buffer));
 
                             // Try to parse as many complete frames as possible.
                             Self::try_parse_frame(&event_sender, &mut buffer).await;
@@ -128,7 +124,6 @@ impl Ipc
             {
                 Ok(frame_size) =>
                 {
-                    debug!("Parsed frame of size {}", frame_size);
                     pos += frame_size;
                 }
                 Err(InternalError::IncompleteFrame) =>
@@ -165,7 +160,6 @@ impl Ipc
         {
             Ok(n) =>
             {
-                debug!("Successfully wrote {} bytes to mDNSResponder socket", n);
                 return Ok(n);
             }
             Err(e) =>
@@ -357,8 +351,6 @@ impl Ipc
         {
             Ok(header) =>
             {
-                debug!("Received IPC message: {:?}", header);
-
                 match header.operation
                 {
                     header::Operation::Reply(reply) => match reply
@@ -389,20 +381,20 @@ impl Ipc
                         }
                         _ =>
                         {
-                            debug!("Received other reply operation: {:?}", reply);
+                            error!("Received other reply operation: {:?}", reply);
                             return Err(InternalError::FrameParsingFailed);
                         }
                     },
                     _ =>
                     {
-                        debug!("Received non-reply IPC message");
+                        error!("Received non-reply IPC message");
                         return Err(InternalError::FrameParsingFailed);
                     }
                 }
             }
             Err(InternalError::IncompleteFrame) =>
             {
-                debug!("Incomplete frame (fragmentation)");
+                error!("Incomplete frame (fragmentation)");
                 return Err(InternalError::IncompleteFrame);
             }
             Err(e) =>
@@ -493,8 +485,6 @@ impl Ipc
                 return Err(InternalError::FrameParsingFailed);
             }
         };
-
-        debug!("Parsed resolve reply: {:?}", resolve_reply);
 
         let resolved = super::Resolved
         {
