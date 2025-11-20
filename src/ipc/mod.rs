@@ -125,6 +125,8 @@ impl Ipc
                 Ok(frame_size) =>
                 {
                     pos += frame_size;
+                    buffer.drain(0..pos);
+                    pos = 0;
                 }
                 Err(InternalError::IncompleteFrame) =>
                 {
@@ -140,12 +142,6 @@ impl Ipc
                     break;
                 }
             }
-        }
-
-        if pos > 0
-        {
-            debug!("Processed {} bytes, removing from buffer", pos);
-            buffer.drain(0..pos);
         }
     }
 
