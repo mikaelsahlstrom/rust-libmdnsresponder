@@ -7,7 +7,7 @@ use tokio::sync::mpsc;
 use tokio::task;
 use tokio_util::sync::CancellationToken;
 
-use crate::mdnsresponder_error::InternalError;
+use crate::mdnsresponder_error::{ InternalError, MDnsResponderErrorCode };
 
 mod header;
 mod operation;
@@ -130,6 +130,12 @@ impl Ipc
                 {
                     debug!("Incomplete frame, waiting for more data");
                     break;
+                }
+                Err(InternalError::MDnsResponderError(code)) =>
+                {
+                    error!("mDNSResponder returned error code: {:?}", code);
+                    // Skip this frame and continue parsing
+                    pos += header::IPC_HEADER_SIZE;
                 }
                 Err(e) =>
                 {
@@ -430,6 +436,12 @@ impl Ipc
             }
         };
 
+        if browse_reply.header.error != 0
+        {
+            error!("Browse reply contains error code: {}", browse_reply.header.error);
+            return Err(InternalError::MDnsResponderError(MDnsResponderErrorCode::from_i32(browse_reply.header.error as i32)));
+        }
+
         let is_add = browse_reply.is_add();
 
         let service = super::Service
@@ -486,6 +498,12 @@ impl Ipc
             }
         };
 
+        if resolve_reply.header.error != 0
+        {
+            error!("Resolve reply contains error code: {}", resolve_reply.header.error);
+            return Err(InternalError::MDnsResponderError(MDnsResponderErrorCode::from_i32(resolve_reply.header.error as i32)));
+        }
+
         let resolved = super::Resolved
         {
             interface_index: resolve_reply.header.interface_index,
@@ -530,7 +548,11 @@ impl Ipc
             }
         };
 
-        debug!("Parsed address info reply: {:?}", addrinfo_reply);
+        if addrinfo_reply.header.error != 0
+        {
+            error!("Address info reply contains error code: {}", addrinfo_reply.header.error);
+            return Err(InternalError::MDnsResponderError(MDnsResponderErrorCode::from_i32(addrinfo_reply.header.error as i32)));
+        }
 
         let ip_addr = match addrinfo_reply.rdata.len()
         {
@@ -587,7 +609,7 @@ impl Ipc
             return Err(InternalError::IncompleteFrame);
         }
 
-        match operation::register::Reply::from_bytes(&buf[start_pos..stop_pos])
+        let register_reply = match operation::register::Reply::from_bytes(&buf[start_pos..stop_pos])
         {
             Ok(reply) => reply,
             Err(e) =>
@@ -596,6 +618,12 @@ impl Ipc
                 return Err(InternalError::FrameParsingFailed);
             }
         };
+
+        if register_reply.header.error != 0
+        {
+            error!("Register service reply contains error code: {}", register_reply.header.error);
+            return Err(InternalError::MDnsResponderError(MDnsResponderErrorCode::from_i32(register_reply.header.error as i32)));
+        }
 
         return Ok(header::IPC_HEADER_SIZE + data_length as usize);
     }

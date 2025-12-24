@@ -14,7 +14,7 @@ pub struct Request
 
 pub struct Reply
 {
-    pub _header: super::ReplyHeader,
+    pub header: super::ReplyHeader,
     // No reply data for register operation
 }
 
@@ -86,7 +86,7 @@ impl Reply
 
         return Ok(Reply
         {
-            _header: header,
+            header
         });
     }
 }
