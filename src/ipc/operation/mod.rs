@@ -29,7 +29,7 @@ pub struct ReplyHeader
 {
     flags: Vec<ReplyFlags>,
     pub interface_index: u32,
-    _error: u32,
+    pub error: u32,
 }
 
 impl ReplyFlags
@@ -74,7 +74,7 @@ impl ReplyHeader
         {
             flags,
             interface_index,
-            _error: error,
+            error,
         });
     }
 }
