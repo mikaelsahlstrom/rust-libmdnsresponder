@@ -4,7 +4,7 @@ pub(crate) enum InternalError
 {
     IncompleteFrame,
     FrameParsingFailed,
-    MDnsResponderError((MDnsResponderErrorCode, usize)),  // Error code and length of the frame
+    MDnsResponderError((ErrorCode, usize)),  // Error code and length of the frame
 }
 
 impl std::fmt::Display for InternalError
@@ -38,12 +38,12 @@ pub enum MDnsResponderError
     ChannelCreationFailed,
     IpcConnectionCreationFailed,
     IpcWriteFailed,
-    MDnsResponderError(MDnsResponderErrorCode),
+    MDnsResponderError(ErrorCode),
 }
 
 #[derive(Debug)]
 #[repr(i32)]
-pub enum MDnsResponderErrorCode
+pub enum ErrorCode
 {
     NoError = 0,
     Unknown = -65537,
@@ -62,27 +62,27 @@ pub enum MDnsResponderErrorCode
     Other(i32),
 }
 
-impl MDnsResponderErrorCode
+impl ErrorCode
 {
     pub fn from_i32(value: i32) -> Self
     {
         match value
         {
-            0 => MDnsResponderErrorCode::NoError,
-            -65537 => MDnsResponderErrorCode::Unknown,
-            -65538 => MDnsResponderErrorCode::NoSuchName,
-            -65539 => MDnsResponderErrorCode::NoMemory,
-            -65540 => MDnsResponderErrorCode::BadParam,
-            -65541 => MDnsResponderErrorCode::BadReference,
-            -65542 => MDnsResponderErrorCode::BadState,
-            -65543 => MDnsResponderErrorCode::BadFlags,
-            -65544 => MDnsResponderErrorCode::Unsupported,
-            -65547 => MDnsResponderErrorCode::AlreadyRegistered,
-            -65548 => MDnsResponderErrorCode::NameConflict,
-            -65549 => MDnsResponderErrorCode::Invalid,
-            -65554 => MDnsResponderErrorCode::NoSuchRecord,
-            -65567 => MDnsResponderErrorCode::PolicyDenied,
-            other => MDnsResponderErrorCode::Other(other),
+            0 => ErrorCode::NoError,
+            -65537 => ErrorCode::Unknown,
+            -65538 => ErrorCode::NoSuchName,
+            -65539 => ErrorCode::NoMemory,
+            -65540 => ErrorCode::BadParam,
+            -65541 => ErrorCode::BadReference,
+            -65542 => ErrorCode::BadState,
+            -65543 => ErrorCode::BadFlags,
+            -65544 => ErrorCode::Unsupported,
+            -65547 => ErrorCode::AlreadyRegistered,
+            -65548 => ErrorCode::NameConflict,
+            -65549 => ErrorCode::Invalid,
+            -65554 => ErrorCode::NoSuchRecord,
+            -65567 => ErrorCode::PolicyDenied,
+            other => ErrorCode::Other(other),
         }
     }
 }

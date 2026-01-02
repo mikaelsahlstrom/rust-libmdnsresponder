@@ -7,7 +7,7 @@ use tokio::sync::mpsc;
 use tokio::task;
 use tokio_util::sync::CancellationToken;
 
-use crate::mdnsresponder_error::{ InternalError, MDnsResponderErrorCode };
+use crate::mdnsresponder_error::{ InternalError, ErrorCode };
 
 mod header;
 mod operation;
@@ -439,7 +439,7 @@ impl Ipc
         if browse_reply.header.error != 0
         {
             error!("Browse reply contains error code: {}", browse_reply.header.error);
-            return Err(InternalError::MDnsResponderError((MDnsResponderErrorCode::from_i32(browse_reply.header.error as i32),
+            return Err(InternalError::MDnsResponderError((ErrorCode::from_i32(browse_reply.header.error as i32),
                                                           header::IPC_HEADER_SIZE + data_length as usize)));
         }
 
@@ -502,7 +502,7 @@ impl Ipc
         if resolve_reply.header.error != 0
         {
             error!("Resolve reply contains error code: {}", resolve_reply.header.error);
-            return Err(InternalError::MDnsResponderError((MDnsResponderErrorCode::from_i32(resolve_reply.header.error as i32),
+            return Err(InternalError::MDnsResponderError((ErrorCode::from_i32(resolve_reply.header.error as i32),
                                                           header::IPC_HEADER_SIZE + data_length as usize)));
         }
 
@@ -553,7 +553,7 @@ impl Ipc
         if addrinfo_reply.header.error != 0
         {
             error!("Address info reply contains error code: {}", addrinfo_reply.header.error);
-            return Err(InternalError::MDnsResponderError((MDnsResponderErrorCode::from_i32(addrinfo_reply.header.error as i32),
+            return Err(InternalError::MDnsResponderError((ErrorCode::from_i32(addrinfo_reply.header.error as i32),
                                                           header::IPC_HEADER_SIZE + data_length as usize)));
         }
 
@@ -625,7 +625,7 @@ impl Ipc
         if register_reply.header.error != 0
         {
             error!("Register service reply contains error code: {}", register_reply.header.error);
-            return Err(InternalError::MDnsResponderError((MDnsResponderErrorCode::from_i32(register_reply.header.error as i32),
+            return Err(InternalError::MDnsResponderError((ErrorCode::from_i32(register_reply.header.error as i32),
                                                           header::IPC_HEADER_SIZE + data_length as usize)));
         }
 
