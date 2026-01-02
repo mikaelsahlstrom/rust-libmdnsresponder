@@ -4,7 +4,7 @@ pub(crate) enum InternalError
 {
     IncompleteFrame,
     FrameParsingFailed,
-    MDnsResponderError(MDnsResponderErrorCode),
+    MDnsResponderError((MDnsResponderErrorCode, usize)),  // Error code and length of the frame
 }
 
 impl std::fmt::Display for InternalError
