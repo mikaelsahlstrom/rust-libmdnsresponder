@@ -162,7 +162,8 @@ impl MDnsResponder
     {
         return match self
             .ipc
-            .write_browse_request(interface_index, service_type, service_domain)
+            .write
+            .browse_request(interface_index, service_type, service_domain)
             .await
         {
             Ok(context) => Ok(context),
@@ -200,7 +201,8 @@ impl MDnsResponder
     {
         return match self
             .ipc
-            .write_resolve_request(
+            .write
+            .resolve_request(
                 interface_index,
                 service_name,
                 service_type,
@@ -244,7 +246,7 @@ impl MDnsResponder
         protocol: Protocol
     ) -> Result<u64, mdnsresponder_error::MDnsResponderError>
     {
-        return match self.ipc.write_addrinfo_request(interface_index, protocol, hostname).await
+        return match self.ipc.write.addrinfo_request(interface_index, protocol, hostname).await
         {
             Ok(context) => Ok(context),
             Err(_) => Err(mdnsresponder_error::MDnsResponderError::IpcWriteFailed),
@@ -272,7 +274,7 @@ impl MDnsResponder
     /// ```
     pub async fn cancel(&mut self, context: u64) -> Result<(), mdnsresponder_error::MDnsResponderError>
     {
-        return match self.ipc.write_cancel_request(context).await
+        return match self.ipc.write.cancel_request(context).await
         {
             Ok(_) => Ok(()),
             Err(_) => Err(mdnsresponder_error::MDnsResponderError::IpcWriteFailed),
@@ -318,7 +320,51 @@ impl MDnsResponder
         txt_data: Vec<String>
     ) -> Result<u64, mdnsresponder_error::MDnsResponderError>
     {
-        return match self.ipc.write_register_request(interface_index, name, service_type, domain, host, port, txt_data).await
+        return match self.ipc.write.register_request(interface_index, name, service_type, domain, host, port, txt_data).await
+        {
+            Ok(context) => Ok(context),
+            Err(_) => Err(mdnsresponder_error::MDnsResponderError::IpcWriteFailed),
+        };
+    }
+
+    /// Adds a DNS resource record with the specified parameters.
+    ///
+    /// # Arguments
+    ///
+    /// * `interface_index` - The index of the network interface to use, 0 for all interfaces.
+    /// * `name` - The name of the resource record (e.g., "example.local").
+    /// * `rrtype` - The resource record type (e.g., 1 for A, 28 for AAAA).
+    /// * `rrclass` - The resource record class (e.g., 1 for IN).
+    /// * `rdata` - The raw resource record data as a byte vector.
+    /// * `ttl` - The time to live value in seconds.
+    ///
+    /// # Returns
+    ///
+    /// Returns a unique context identifier for the add record request.
+    ///
+    /// # Examples
+    ///
+    /// ```rust,no_run
+    /// use mdnsresponder::MDnsResponder;
+    ///
+    /// #[tokio::main]
+    /// async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    ///     let mut responder = MDnsResponder::new(10).await?;
+    ///     let context = responder.add_record(0, "example.local".to_string(), 1, 1, vec![192, 168, 1, 1], 4500).await?;
+    ///     Ok(())
+    /// }
+    /// ```
+    pub async fn add_record(
+        &mut self,
+        interface_index: u32,
+        name: String,
+        rrtype: u16,
+        rrclass: u16,
+        rdata: Vec<u8>,
+        ttl: u32
+    ) -> Result<u64, mdnsresponder_error::MDnsResponderError>
+    {
+        return match self.ipc.write.add_record_request(interface_index, name, rrtype, rrclass, rdata, ttl).await
         {
             Ok(context) => Ok(context),
             Err(_) => Err(mdnsresponder_error::MDnsResponderError::IpcWriteFailed),

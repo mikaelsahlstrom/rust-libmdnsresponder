@@ -1,16 +1,17 @@
 use log::{ debug, error };
 use std::io;
-use tokio::net::{ UnixStream, unix::{OwnedReadHalf, OwnedWriteHalf}, };
-use std::net::IpAddr;
+use tokio::net::{ UnixStream, unix::OwnedReadHalf, };
 use tokio::select;
 use tokio::sync::mpsc;
 use tokio::task;
 use tokio_util::sync::CancellationToken;
 
-use crate::mdnsresponder_error::{ InternalError, ErrorCode };
+use crate::mdnsresponder_error::InternalError;
 
 mod header;
 mod operation;
+mod write;
+mod parse;
 
 const SOCKET_PATH: &str = "/var/run/mDNSResponder";
 
@@ -18,7 +19,7 @@ pub struct Ipc
 {
     listen_task: task::JoinHandle<()>,
     cancel_token: CancellationToken,
-    write_socket: OwnedWriteHalf,
+    pub write: write::IpcWriter,
 }
 
 impl Ipc
@@ -48,7 +49,7 @@ impl Ipc
         {
             listen_task,
             cancel_token,
-            write_socket,
+            write: write::IpcWriter::new(write_socket),
         });
     }
 
@@ -155,199 +156,6 @@ impl Ipc
         }
     }
 
-    async fn write(&mut self, buf: &[u8]) -> io::Result<usize>
-    {
-        self.write_socket
-            .writable()
-            .await
-            .expect("Failed to set writable on stream");
-
-        match self.write_socket.try_write(buf)
-        {
-            Ok(n) =>
-            {
-                return Ok(n);
-            }
-            Err(e) =>
-            {
-                error!("Failed to write to mDNSResponder socket: {}", e);
-                return Err(e);
-            }
-        }
-    }
-
-    pub async fn write_browse_request(
-        &mut self,
-        interface_index: u32,
-        service_type: String,
-        service_domain: String,
-    ) -> Result<u64, io::Error>
-    {
-        let request = operation::browse::Request::new(
-            operation::ServiceFlags::None,
-            interface_index,
-            service_type,
-            service_domain,
-        );
-
-        let request_buf = request.to_bytes();
-
-        let header = header::IpcMessageHeader::new(
-            1, // Version
-            request_buf.len() as u32,
-            header::IpcFlags::NoErrSd as u32,
-            header::Operation::Request(header::request::RequestOperation::Browse),
-            rand::random::<u64>(),
-            0, // Registration index, set to 0 for default
-        );
-
-        let header_buf = header.to_bytes();
-
-        let mut buf = Vec::with_capacity(header_buf.len() + request_buf.len());
-        buf.extend_from_slice(&header_buf);
-        buf.extend_from_slice(&request_buf);
-
-        self.write(&buf).await?;
-
-        return Ok(header.client_context);
-    }
-
-    pub async fn write_cancel_request(&mut self, context: u64) -> Result<(), io::Error>
-    {
-        let header = header::IpcMessageHeader::new(
-            1, // Version
-            0, // No data
-            header::IpcFlags::NoErrSd as u32,
-            header::Operation::Request(header::request::RequestOperation::Cancel),
-            context,
-            0, // Registration index, set to 0 for default
-        );
-
-        let header_buf = header.to_bytes();
-
-        self.write(&header_buf).await?;
-
-        return Ok(());
-    }
-
-    pub async fn write_resolve_request(
-        &mut self,
-        interface_index: u32,
-        service_name: String,
-        reg_type: String,
-        service_domain: String,
-    ) -> Result<u64, io::Error>
-    {
-        let request = operation::resolve::Request::new(
-            operation::ServiceFlags::None,
-            interface_index,
-            service_name,
-            reg_type,
-            service_domain,
-        );
-
-        let request_buf = request.to_bytes();
-
-        let header = header::IpcMessageHeader::new(
-            1, // Version
-            request_buf.len() as u32,
-            header::IpcFlags::NoErrSd as u32,
-            header::Operation::Request(header::request::RequestOperation::Resolve),
-            rand::random::<u64>(),
-            0, // Registration index, set to 0 for default
-        );
-
-        let header_buf = header.to_bytes();
-
-        let mut buf = Vec::with_capacity(header_buf.len() + request_buf.len());
-        buf.extend_from_slice(&header_buf);
-        buf.extend_from_slice(&request_buf);
-
-        self.write(&buf).await?;
-
-        return Ok(header.client_context);
-    }
-
-    pub async fn write_addrinfo_request(
-        &mut self,
-        interface_index: u32,
-        protocol: super::Protocol,
-        hostname: String
-    ) -> Result<u64, io::Error>
-    {
-        let request = operation::addrinfo::Request::new(
-            operation::ServiceFlags::None,
-            interface_index,
-            protocol.into(),
-            hostname,
-        );
-
-        let request_buf = request.to_bytes();
-
-        let header = header::IpcMessageHeader::new(
-            1, // Version
-            request_buf.len() as u32,
-            header::IpcFlags::NoErrSd as u32,
-            header::Operation::Request(header::request::RequestOperation::AddressInfo),
-            rand::random::<u64>(),
-            0, // Registration index, set to 0 for default
-        );
-
-        let header_buf = header.to_bytes();
-
-        let mut buf = Vec::with_capacity(header_buf.len() + request_buf.len());
-        buf.extend_from_slice(&header_buf);
-        buf.extend_from_slice(&request_buf);
-
-        self.write(&buf).await?;
-
-        return Ok(header.client_context);
-    }
-
-    pub async fn write_register_request(
-        &mut self,
-        interface_index: u32,
-        name: String,
-        service_type: String,
-        domain: String,
-        host: String,
-        port: u16,
-        txt_data: Vec<String>
-    ) -> Result<u64, io::Error>
-    {
-        let request = operation::register::Request::new(
-            operation::ServiceFlags::None,
-            interface_index,
-            name,
-            service_type,
-            domain,
-            host,
-            port,
-            txt_data
-        );
-
-        let request_buf = request.to_bytes();
-
-        let header = header::IpcMessageHeader::new(
-            1, // Version
-            request_buf.len() as u32,
-            header::IpcFlags::NoErrSd as u32,
-            header::Operation::Request(header::request::RequestOperation::RegisterService),
-            rand::random::<u64>(),
-            0, // Registration index, set to 0 for default
-        );
-
-        let header_buf = header.to_bytes();
-
-        let mut buf = Vec::with_capacity(header_buf.len() + request_buf.len());
-        buf.extend_from_slice(&header_buf);
-        buf.extend_from_slice(&request_buf);
-
-        self.write(&buf).await?;
-
-        return Ok(header.client_context);
-    }
-
     async fn parse_frame(
         buf: &[u8],
         event_sender: &mpsc::Sender<super::MDnsResponderEvent>,
@@ -363,12 +171,12 @@ impl Ipc
                     {
                         header::reply::ReplyOperation::Browse =>
                         {
-                            return Self::parse_browse_reply(buf, header.data_length, event_sender)
+                            return parse::browse_reply(buf, header.data_length, event_sender)
                                 .await;
                         }
                         header::reply::ReplyOperation::Resolve =>
                         {
-                            return Self::parse_resolve_reply(
+                            return parse::resolve_reply(
                                 buf,
                                 header.data_length,
                                 event_sender,
@@ -377,12 +185,12 @@ impl Ipc
                         }
                         header::reply::ReplyOperation::AddressInfo =>
                         {
-                            return Self::parse_address_info_reply(buf, header.data_length, event_sender)
+                            return parse::address_info_reply(buf, header.data_length, event_sender)
                                 .await;
                         }
                         header::reply::ReplyOperation::RegisterService =>
                         {
-                            return Self::parse_register_service_reply(buf, header.data_length)
+                            return parse::register_service_reply(buf, header.data_length)
                                 .await;
                         }
                         _ =>
@@ -409,226 +217,5 @@ impl Ipc
                 return Err(InternalError::FrameParsingFailed);
             }
         }
-    }
-
-    async fn parse_browse_reply(
-        buf: &[u8],
-        data_length: u32,
-        event_sender: &mpsc::Sender<super::MDnsResponderEvent>,
-    ) -> Result<usize, InternalError>
-    {
-        let start_pos = header::IPC_HEADER_SIZE;
-        let stop_pos = start_pos + data_length as usize;
-
-        if stop_pos > buf.len()
-        {
-            debug!("Incomplete frame (fragmentation): need {} bytes, have {}", stop_pos, buf.len());
-            return Err(InternalError::IncompleteFrame);
-        }
-
-        let browse_reply = match operation::browse::Reply::from_bytes(&buf[start_pos..stop_pos])
-        {
-            Ok(reply) => reply,
-            Err(e) =>
-            {
-                error!("Failed to parse browse reply: {}", e);
-                return Err(InternalError::FrameParsingFailed);
-            }
-        };
-
-        if browse_reply.header.error != 0
-        {
-            error!("Browse reply contains error code: {}", browse_reply.header.error);
-            return Err(InternalError::MDnsResponderError((ErrorCode::from_i32(browse_reply.header.error as i32),
-                                                          header::IPC_HEADER_SIZE + data_length as usize)));
-        }
-
-        let is_add = browse_reply.is_add();
-
-        let service = super::Service
-        {
-            interface_index: browse_reply.header.interface_index,
-            name: browse_reply.service_name,
-            service_type: browse_reply.service_type,
-            domain: browse_reply.service_domain,
-        };
-
-        if is_add
-        {
-            if let Err(e) = event_sender
-                .send(super::MDnsResponderEvent::ServiceAdded(service))
-                .await
-            {
-                error!("Failed to send service added notification: {}", e);
-            }
-        }
-        else
-        {
-            if let Err(e) = event_sender
-                .send(super::MDnsResponderEvent::ServiceRemoved(service))
-                .await
-            {
-                error!("Failed to send service removed notification: {}", e);
-            }
-        }
-
-        return Ok(header::IPC_HEADER_SIZE + data_length as usize);
-    }
-
-    async fn parse_resolve_reply(
-        buf: &[u8],
-        data_length: u32,
-        event_sender: &mpsc::Sender<super::MDnsResponderEvent>,
-    ) -> Result<usize, InternalError>
-    {
-        let start_pos = header::IPC_HEADER_SIZE;
-        let stop_pos = start_pos + data_length as usize;
-
-        if stop_pos > buf.len() {
-            debug!("Incomplete frame (fragmentation): need {} bytes, have {}", stop_pos, buf.len());
-            return Err(InternalError::IncompleteFrame);
-        }
-
-        let resolve_reply = match operation::resolve::Reply::from_bytes(&buf[start_pos..stop_pos])
-        {
-            Ok(reply) => reply,
-            Err(e) =>
-            {
-                error!("Failed to parse resolve reply: {}", e);
-                return Err(InternalError::FrameParsingFailed);
-            }
-        };
-
-        if resolve_reply.header.error != 0
-        {
-            error!("Resolve reply contains error code: {}", resolve_reply.header.error);
-            return Err(InternalError::MDnsResponderError((ErrorCode::from_i32(resolve_reply.header.error as i32),
-                                                          header::IPC_HEADER_SIZE + data_length as usize)));
-        }
-
-        let resolved = super::Resolved
-        {
-            interface_index: resolve_reply.header.interface_index,
-            full_name: resolve_reply.full_name,
-            host_target: resolve_reply.host_target,
-            port: resolve_reply.port,
-            txt_data: resolve_reply.txt_data,
-        };
-
-        if let Err(e) = event_sender
-            .send(super::MDnsResponderEvent::ServiceResolved(resolved))
-            .await
-        {
-            error!("Failed to send service resolved notification: {}", e);
-        }
-
-        return Ok(header::IPC_HEADER_SIZE + data_length as usize);
-    }
-
-    async fn parse_address_info_reply(
-        buf: &[u8],
-        data_length: u32,
-        event_sender: &mpsc::Sender<super::MDnsResponderEvent>,
-    ) -> Result<usize, InternalError>
-    {
-        let start_pos = header::IPC_HEADER_SIZE;
-        let stop_pos = start_pos + data_length as usize;
-
-        if stop_pos > buf.len()
-        {
-            debug!("Incomplete frame (fragmentation): need {} bytes, have {}", stop_pos, buf.len());
-            return Err(InternalError::IncompleteFrame);
-        }
-
-        let addrinfo_reply = match operation::addrinfo::Reply::from_bytes(&buf[start_pos..stop_pos])
-        {
-            Ok(reply) => reply,
-            Err(e) =>
-            {
-                error!("Failed to parse address info reply: {}", e);
-                return Err(InternalError::FrameParsingFailed);
-            }
-        };
-
-        if addrinfo_reply.header.error != 0
-        {
-            error!("Address info reply contains error code: {}", addrinfo_reply.header.error);
-            return Err(InternalError::MDnsResponderError((ErrorCode::from_i32(addrinfo_reply.header.error as i32),
-                                                          header::IPC_HEADER_SIZE + data_length as usize)));
-        }
-
-        let ip_addr = match addrinfo_reply.rdata.len()
-        {
-            4 =>
-            {
-                IpAddr::from([
-                    addrinfo_reply.rdata[0],
-                    addrinfo_reply.rdata[1],
-                    addrinfo_reply.rdata[2],
-                    addrinfo_reply.rdata[3],
-                ])
-            }
-            16 =>
-            {
-                let mut octets = [0u8; 16];
-                octets.copy_from_slice(&addrinfo_reply.rdata[..16]);
-                IpAddr::from(octets)
-            }
-            _ =>
-            {
-                error!("Unexpected rdata length for IP address: {}", addrinfo_reply.rdata.len());
-                return Err(InternalError::FrameParsingFailed);
-            }
-        };
-
-        let addr_info = super::AddressInfo
-        {
-            interface_index: addrinfo_reply.header.interface_index,
-            hostname: addrinfo_reply.name,
-            address: ip_addr,
-        };
-
-        if let Err(e) = event_sender
-            .send(super::MDnsResponderEvent::AddressInfoResolved(addr_info))
-            .await
-        {
-            error!("Failed to send address info notification: {}", e);
-        }
-
-        return Ok(header::IPC_HEADER_SIZE + data_length as usize);
-    }
-
-    async fn parse_register_service_reply(
-        buf: &[u8],
-        data_length: u32,
-    ) -> Result<usize, InternalError>
-    {
-        let start_pos = header::IPC_HEADER_SIZE;
-        let stop_pos = start_pos + data_length as usize;
-
-        if stop_pos > buf.len()
-        {
-            debug!("Incomplete frame (fragmentation): need {} bytes, have {}", stop_pos, buf.len());
-            return Err(InternalError::IncompleteFrame);
-        }
-
-        let register_reply = match operation::register::Reply::from_bytes(&buf[start_pos..stop_pos])
-        {
-            Ok(reply) => reply,
-            Err(e) =>
-            {
-                error!("Failed to parse register service reply: {}", e);
-                return Err(InternalError::FrameParsingFailed);
-            }
-        };
-
-        if register_reply.header.error != 0
-        {
-            error!("Register service reply contains error code: {}", register_reply.header.error);
-            return Err(InternalError::MDnsResponderError((ErrorCode::from_i32(register_reply.header.error as i32),
-                                                          header::IPC_HEADER_SIZE + data_length as usize)));
-        }
-
-        return Ok(header::IPC_HEADER_SIZE + data_length as usize);
     }
 }
