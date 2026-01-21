@@ -331,8 +331,7 @@ impl MDnsResponder
     ///
     /// # Arguments
     ///
-    /// * `interface_index` - The index of the network interface to use, 0 for all interfaces.
-    /// * `name` - The name of the resource record (e.g., "example.local").
+    /// * `context` - The unique context identifier returned by `register`.
     /// * `rrtype` - The resource record type (e.g., 1 for A, 28 for AAAA).
     /// * `rrclass` - The resource record class (e.g., 1 for IN).
     /// * `rdata` - The raw resource record data as a byte vector.
@@ -340,7 +339,7 @@ impl MDnsResponder
     ///
     /// # Returns
     ///
-    /// Returns a unique context identifier for the add record request.
+    /// Returns a result indicating the success or failure of the add record request.
     ///
     /// # Examples
     ///
@@ -350,23 +349,23 @@ impl MDnsResponder
     /// #[tokio::main]
     /// async fn main() -> Result<(), Box<dyn std::error::Error>> {
     ///     let mut responder = MDnsResponder::new(10).await?;
-    ///     let context = responder.add_record(0, "example.local".to_string(), 1, 1, vec![192, 168, 1, 1], 4500).await?;
+    ///     let context = responder.register(0, "My Service".to_string(), "_http._tcp".to_string(), "local".to_string(), "myhost.local".to_string(), 8080, vec!["key=value".to_string()]).await?;
+    ///     responder.add_record(context, 1, 1, vec![192, 168, 1, 1], 4500).await?;
     ///     Ok(())
     /// }
     /// ```
     pub async fn add_record(
         &mut self,
-        interface_index: u32,
-        name: String,
+        context: u64,
         rrtype: u16,
         rrclass: u16,
         rdata: Vec<u8>,
         ttl: u32
-    ) -> Result<u64, mdnsresponder_error::MDnsResponderError>
+    ) -> Result<(), mdnsresponder_error::MDnsResponderError>
     {
-        return match self.ipc.write.add_record_request(interface_index, name, rrtype, rrclass, rdata, ttl).await
+        return match self.ipc.write.add_record_request(context, rrtype, rrclass, rdata, ttl).await
         {
-            Ok(context) => Ok(context),
+            Ok(_) => Ok(()),
             Err(_) => Err(mdnsresponder_error::MDnsResponderError::IpcWriteFailed),
         };
     }

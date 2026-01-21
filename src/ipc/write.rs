@@ -216,18 +216,15 @@ impl IpcWriter
 
     pub async fn add_record_request(
         &mut self,
-        interface_index: u32,
-        name: String,
+        context: u64,
         rrtype: u16,
         rrclass: u16,
         rdata: Vec<u8>,
         ttl: u32
-    ) -> Result<u64, io::Error>
+    ) -> Result<(), io::Error>
     {
         let request = operation::addrecord::Request::new(
             operation::ServiceFlags::None,
-            interface_index,
-            name,
             rrtype,
             rrclass,
             rdata,
@@ -241,7 +238,7 @@ impl IpcWriter
             request_buf.len() as u32,
             header::IpcFlags::NoErrSd as u32,
             header::Operation::Request(header::request::RequestOperation::AddRecord),
-            rand::random::<u64>(),
+            context,
             0, // Registration index, set to 0 for default
         );
 
@@ -253,6 +250,6 @@ impl IpcWriter
 
         self.write(&buf).await?;
 
-        return Ok(header.client_context);
+        return Ok(());
     }
 }
