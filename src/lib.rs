@@ -333,7 +333,6 @@ impl MDnsResponder
     ///
     /// * `context` - The unique context identifier returned by `register`.
     /// * `rrtype` - The resource record type (e.g., 1 for A, 28 for AAAA).
-    /// * `rrclass` - The resource record class (e.g., 1 for IN).
     /// * `rdata` - The raw resource record data as a byte vector.
     /// * `ttl` - The time to live value in seconds.
     ///
