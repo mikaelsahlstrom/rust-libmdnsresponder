@@ -2,6 +2,8 @@ pub mod browse;
 pub mod resolve;
 pub mod addrinfo;
 pub mod register;
+pub mod addrecord;
+pub mod registerrecord;
 
 #[repr(u32)]
 #[derive(Copy, Clone, Debug)]
