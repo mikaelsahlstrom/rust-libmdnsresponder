@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::io;
 use log::error;
 use tokio::net::unix::OwnedWriteHalf;
@@ -9,6 +10,8 @@ use crate::Protocol;
 pub struct IpcWriter
 {
     write_socket: OwnedWriteHalf,
+    next_reg_index: u32,
+    context_to_reg_index: HashMap<u64, u32>,
 }
 
 impl IpcWriter
@@ -18,7 +21,16 @@ impl IpcWriter
         return IpcWriter
         {
             write_socket,
+            next_reg_index: 0,
+            context_to_reg_index: HashMap::new(),
         };
+    }
+
+    fn next_reg_index(&mut self) -> u32
+    {
+        let index = self.next_reg_index;
+        self.next_reg_index += 1;
+        return index;
     }
 
     pub async fn write(&mut self, buf: &[u8]) -> io::Result<usize>
@@ -40,6 +52,24 @@ impl IpcWriter
                 return Err(e);
             }
         }
+    }
+
+    pub async fn connection_request(&mut self) -> Result<(), io::Error>
+    {
+        let header = header::IpcMessageHeader::new(
+            1, // Version
+            0, // No data
+            header::IpcFlags::NoErrSd as u32,
+            header::Operation::Request(header::request::RequestOperation::Connection),
+            0, // No context needed for connection request
+            0, // Registration index
+        );
+
+        let header_buf = header.to_bytes();
+
+        self.write(&header_buf).await?;
+
+        return Ok(());
     }
 
     pub async fn browse_request(
@@ -64,7 +94,7 @@ impl IpcWriter
             header::IpcFlags::NoErrSd as u32,
             header::Operation::Request(header::request::RequestOperation::Browse),
             rand::random::<u64>(),
-            0, // Registration index, set to 0 for default
+            self.next_reg_index(),
         );
 
         let header_buf = header.to_bytes();
@@ -75,18 +105,22 @@ impl IpcWriter
 
         self.write(&buf).await?;
 
+        self.context_to_reg_index.insert(header.client_context, header.reg_index);
+
         return Ok(header.client_context);
     }
 
     pub async fn cancel_request(&mut self, context: u64) -> Result<(), io::Error>
     {
+        let reg_index = self.context_to_reg_index.remove(&context).unwrap_or(0);
+
         let header = header::IpcMessageHeader::new(
             1, // Version
             0, // No data
             header::IpcFlags::NoErrSd as u32,
             header::Operation::Request(header::request::RequestOperation::Cancel),
             context,
-            0, // Registration index, set to 0 for default
+            reg_index,
         );
 
         let header_buf = header.to_bytes();
@@ -120,7 +154,7 @@ impl IpcWriter
             header::IpcFlags::NoErrSd as u32,
             header::Operation::Request(header::request::RequestOperation::Resolve),
             rand::random::<u64>(),
-            0, // Registration index, set to 0 for default
+            self.next_reg_index(),
         );
 
         let header_buf = header.to_bytes();
@@ -130,6 +164,8 @@ impl IpcWriter
         buf.extend_from_slice(&request_buf);
 
         self.write(&buf).await?;
+
+        self.context_to_reg_index.insert(header.client_context, header.reg_index);
 
         return Ok(header.client_context);
     }
@@ -156,7 +192,7 @@ impl IpcWriter
             header::IpcFlags::NoErrSd as u32,
             header::Operation::Request(header::request::RequestOperation::AddressInfo),
             rand::random::<u64>(),
-            0, // Registration index, set to 0 for default
+            self.next_reg_index(),
         );
 
         let header_buf = header.to_bytes();
@@ -166,6 +202,8 @@ impl IpcWriter
         buf.extend_from_slice(&request_buf);
 
         self.write(&buf).await?;
+
+        self.context_to_reg_index.insert(header.client_context, header.reg_index);
 
         return Ok(header.client_context);
     }
@@ -200,7 +238,7 @@ impl IpcWriter
             header::IpcFlags::NoErrSd as u32,
             header::Operation::Request(header::request::RequestOperation::RegisterService),
             rand::random::<u64>(),
-            0, // Registration index, set to 0 for default
+            self.next_reg_index(),
         );
 
         let header_buf = header.to_bytes();
@@ -211,6 +249,8 @@ impl IpcWriter
 
         self.write(&buf).await?;
 
+        self.context_to_reg_index.insert(header.client_context, header.reg_index);
+
         return Ok(header.client_context);
     }
 
@@ -218,13 +258,55 @@ impl IpcWriter
         &mut self,
         context: u64,
         rrtype: u16,
-        rrclass: u16,
         rdata: Vec<u8>,
         ttl: u32
     ) -> Result<(), io::Error>
     {
         let request = operation::addrecord::Request::new(
             operation::ServiceFlags::None,
+            rrtype,
+            rdata,
+            ttl
+        );
+
+        let request_buf = request.to_bytes();
+
+        let reg_index = self.context_to_reg_index.get(&context).copied().unwrap_or(0);
+
+        let header = header::IpcMessageHeader::new(
+            1, // Version
+            request_buf.len() as u32,
+            header::IpcFlags::NoErrSd as u32,
+            header::Operation::Request(header::request::RequestOperation::AddRecord),
+            context,
+            reg_index,
+        );
+
+        let header_buf = header.to_bytes();
+
+        let mut buf = Vec::with_capacity(header_buf.len() + request_buf.len());
+        buf.extend_from_slice(&header_buf);
+        buf.extend_from_slice(&request_buf);
+
+        self.write(&buf).await?;
+
+        return Ok(());
+    }
+
+    pub async fn register_record_request(
+        &mut self,
+        interface_index: u32,
+        fullname: String,
+        rrtype: u16,
+        rrclass: u16,
+        rdata: Vec<u8>,
+        ttl: u32
+    ) -> Result<u64, io::Error>
+    {
+        let request = operation::registerrecord::Request::new(
+            operation::ServiceFlags::None,
+            interface_index,
+            fullname,
             rrtype,
             rrclass,
             rdata,
@@ -237,9 +319,9 @@ impl IpcWriter
             1, // Version
             request_buf.len() as u32,
             header::IpcFlags::NoErrSd as u32,
-            header::Operation::Request(header::request::RequestOperation::AddRecord),
-            context,
-            0, // Registration index, set to 0 for default
+            header::Operation::Request(header::request::RequestOperation::RegisterRecord),
+            rand::random::<u64>(),
+            self.next_reg_index(),
         );
 
         let header_buf = header.to_bytes();
@@ -250,6 +332,8 @@ impl IpcWriter
 
         self.write(&buf).await?;
 
-        return Ok(());
+        self.context_to_reg_index.insert(header.client_context, header.reg_index);
+
+        return Ok(header.client_context);
     }
 }

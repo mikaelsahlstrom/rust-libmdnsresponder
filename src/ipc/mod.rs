@@ -39,6 +39,16 @@ impl Ipc
         let cancel_token = CancellationToken::new();
         let (read_socket, write_socket) = stream.into_split();
 
+        let mut writer = write::IpcWriter::new(write_socket);
+
+        // Send connection request to establish a shared connection,
+        // allowing multiple operations on the same socket.
+        if let Err(e) = writer.connection_request().await
+        {
+            error!("Failed to send connection request: {}", e);
+            return Err(e);
+        }
+
         let listen_task = task::spawn(Self::listener(
             read_socket,
             cancel_token.clone(),
@@ -49,7 +59,7 @@ impl Ipc
         {
             listen_task,
             cancel_token,
-            write: write::IpcWriter::new(write_socket),
+            write: writer,
         });
     }
 

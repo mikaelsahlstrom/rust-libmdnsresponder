@@ -350,7 +350,7 @@ impl MDnsResponder
     /// async fn main() -> Result<(), Box<dyn std::error::Error>> {
     ///     let mut responder = MDnsResponder::new(10).await?;
     ///     let context = responder.register(0, "My Service".to_string(), "_http._tcp".to_string(), "local".to_string(), "myhost.local".to_string(), 8080, vec!["key=value".to_string()]).await?;
-    ///     responder.add_record(context, 1, 1, vec![192, 168, 1, 1], 4500).await?;
+    ///     responder.add_record(context, 1, vec![192, 168, 1, 1], 4500).await?;
     ///     Ok(())
     /// }
     /// ```
@@ -358,14 +358,62 @@ impl MDnsResponder
         &mut self,
         context: u64,
         rrtype: u16,
-        rrclass: u16,
         rdata: Vec<u8>,
         ttl: u32
     ) -> Result<(), mdnsresponder_error::MDnsResponderError>
     {
-        return match self.ipc.write.add_record_request(context, rrtype, rrclass, rdata, ttl).await
+        return match self.ipc.write.add_record_request(context, rrtype, rdata, ttl).await
         {
             Ok(_) => Ok(()),
+            Err(_) => Err(mdnsresponder_error::MDnsResponderError::IpcWriteFailed),
+        };
+    }
+
+    /// Registers an individual DNS resource record with the specified name and parameters.
+    ///
+    /// Unlike `add_record`, which attaches an extra record to a service registered via
+    /// `register`, this method registers a standalone record with an arbitrary fully-qualified
+    /// domain name. Use this to publish A/AAAA records for a hostname, for example.
+    ///
+    /// # Arguments
+    ///
+    /// * `interface_index` - The network interface index (0 for all interfaces).
+    /// * `fullname` - The full DNS name for the record (e.g., "myhost.local").
+    /// * `rrtype` - The resource record type (e.g., 1 for A, 28 for AAAA).
+    /// * `rrclass` - The resource record class (e.g., 1 for IN).
+    /// * `rdata` - The raw resource record data as a byte vector.
+    /// * `ttl` - The time to live value in seconds.
+    ///
+    /// # Returns
+    ///
+    /// Returns a unique context identifier that can be passed to `cancel`.
+    ///
+    /// # Examples
+    ///
+    /// ```rust,no_run
+    /// use mdnsresponder::MDnsResponder;
+    ///
+    /// #[tokio::main]
+    /// async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    ///     let mut responder = MDnsResponder::new(10).await?;
+    ///     let context = responder.register_record(0, "myhost.local".to_string(), 1, 1, vec![192, 168, 1, 1], 4500).await?;
+    ///     responder.cancel(context).await?;
+    ///     Ok(())
+    /// }
+    /// ```
+    pub async fn register_record(
+        &mut self,
+        interface_index: u32,
+        fullname: String,
+        rrtype: u16,
+        rrclass: u16,
+        rdata: Vec<u8>,
+        ttl: u32
+    ) -> Result<u64, mdnsresponder_error::MDnsResponderError>
+    {
+        return match self.ipc.write.register_record_request(interface_index, fullname, rrtype, rrclass, rdata, ttl).await
+        {
+            Ok(context) => Ok(context),
             Err(_) => Err(mdnsresponder_error::MDnsResponderError::IpcWriteFailed),
         };
     }
