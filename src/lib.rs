@@ -417,6 +417,42 @@ impl MDnsResponder
         };
     }
 
+    /// Removes a DNS resource record that was previously added via `add_record`.
+    ///
+    /// # Arguments
+    ///
+    /// * `context` - The unique context identifier returned by `register`.
+    ///
+    /// # Returns
+    ///
+    /// Returns a result indicating the success or failure of the remove record request.
+    ///
+    /// # Examples
+    ///
+    /// ```rust,no_run
+    /// use mdnsresponder::MDnsResponder;
+    ///
+    /// #[tokio::main]
+    /// async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    ///     let mut responder = MDnsResponder::new(10).await?;
+    ///     let context = responder.register(0, "My Service".to_string(), "_http._tcp".to_string(), "local".to_string(), "myhost.local".to_string(), 8080, vec!["key=value".to_string()]).await?;
+    ///     responder.add_record(context, 1, vec![192, 168, 1, 1], 4500).await?;
+    ///     responder.remove_record(context).await?;
+    ///     Ok(())
+    /// }
+    /// ```
+    pub async fn remove_record(
+        &mut self,
+        context: u64,
+    ) -> Result<(), mdnsresponder_error::MDnsResponderError>
+    {
+        return match self.ipc.write.remove_record_request(context).await
+        {
+            Ok(_) => Ok(()),
+            Err(_) => Err(mdnsresponder_error::MDnsResponderError::IpcWriteFailed),
+        };
+    }
+
     /// Updates the resource record data for a previously registered service or record.
     ///
     /// Use this to change the rdata and/or TTL of a record that was registered via

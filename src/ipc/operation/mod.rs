@@ -4,6 +4,7 @@ pub mod addrinfo;
 pub mod register;
 pub mod addrecord;
 pub mod updaterecord;
+pub mod removerecord;
 pub mod registerrecord;
 
 #[repr(u32)]
