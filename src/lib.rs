@@ -416,4 +416,46 @@ impl MDnsResponder
             Err(_) => Err(mdnsresponder_error::MDnsResponderError::IpcWriteFailed),
         };
     }
+
+    /// Updates the resource record data for a previously registered service or record.
+    ///
+    /// Use this to change the rdata and/or TTL of a record that was registered via
+    /// `register`, `add_record`, or `register_record`.
+    ///
+    /// # Arguments
+    ///
+    /// * `context` - The unique context identifier returned by `register` or `register_record`.
+    /// * `rdata` - The new raw resource record data as a byte vector.
+    /// * `ttl` - The new time to live value in seconds.
+    ///
+    /// # Returns
+    ///
+    /// Returns a result indicating the success or failure of the update record request.
+    ///
+    /// # Examples
+    ///
+    /// ```rust,no_run
+    /// use mdnsresponder::MDnsResponder;
+    ///
+    /// #[tokio::main]
+    /// async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    ///     let mut responder = MDnsResponder::new(10).await?;
+    ///     let context = responder.register(0, "My Service".to_string(), "_http._tcp".to_string(), "local".to_string(), "myhost.local".to_string(), 8080, vec!["key=value".to_string()]).await?;
+    ///     responder.update_record(context, vec![b'n', b'e', b'w', b'=', b'd', b'a', b't', b'a'], 4500).await?;
+    ///     Ok(())
+    /// }
+    /// ```
+    pub async fn update_record(
+        &mut self,
+        context: u64,
+        rdata: Vec<u8>,
+        ttl: u32
+    ) -> Result<(), mdnsresponder_error::MDnsResponderError>
+    {
+        return match self.ipc.write.update_record_request(context, rdata, ttl).await
+        {
+            Ok(_) => Ok(()),
+            Err(_) => Err(mdnsresponder_error::MDnsResponderError::IpcWriteFailed),
+        };
+    }
 }

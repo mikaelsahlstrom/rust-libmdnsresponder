@@ -336,4 +336,41 @@ impl IpcWriter
 
         return Ok(header.client_context);
     }
+
+    pub async fn update_record_request(
+        &mut self,
+        context: u64,
+        rdata: Vec<u8>,
+        ttl: u32
+    ) -> Result<(), io::Error>
+    {
+        let request = operation::updaterecord::Request::new(
+            operation::ServiceFlags::None,
+            rdata,
+            ttl
+        );
+
+        let request_buf = request.to_bytes();
+
+        let reg_index = self.context_to_reg_index.get(&context).copied().unwrap_or(0);
+
+        let header = header::IpcMessageHeader::new(
+            1, // Version
+            request_buf.len() as u32,
+            header::IpcFlags::NoErrSd as u32,
+            header::Operation::Request(header::request::RequestOperation::UpdateRecord),
+            context,
+            reg_index,
+        );
+
+        let header_buf = header.to_bytes();
+
+        let mut buf = Vec::with_capacity(header_buf.len() + request_buf.len());
+        buf.extend_from_slice(&header_buf);
+        buf.extend_from_slice(&request_buf);
+
+        self.write(&buf).await?;
+
+        return Ok(());
+    }
 }
