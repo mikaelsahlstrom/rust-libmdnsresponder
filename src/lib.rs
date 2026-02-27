@@ -417,11 +417,11 @@ impl MDnsResponder
         };
     }
 
-    /// Removes a DNS resource record that was previously added via `register_record`.
+    /// Removes a DNS resource record that was previously added via `add_record`.
     ///
     /// # Arguments
     ///
-    /// * `context` - The unique context identifier returned by `register_record`.
+    /// * `context` - The unique context identifier returned by `register`.
     ///
     /// # Returns
     ///
