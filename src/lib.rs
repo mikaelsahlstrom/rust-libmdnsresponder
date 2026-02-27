@@ -420,7 +420,7 @@ impl MDnsResponder
     /// Updates the resource record data for a previously registered service or record.
     ///
     /// Use this to change the rdata and/or TTL of a record that was registered via
-    /// `register`, `add_record`, or `register_record`.
+    /// `register` or `register_record`.
     ///
     /// # Arguments
     ///
