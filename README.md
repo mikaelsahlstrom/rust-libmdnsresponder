@@ -1,6 +1,6 @@
 # rust-libmdnsresponder
 
-A rust library that provides an interface to the Apple mDNSResponder API over the unix socket interface mDNSResponder provides.
+A Rust library that provides an interface to the Apple mDNSResponder API over the Unix socket interface mDNSResponder provides.
 
 # Usage example
 
@@ -16,7 +16,7 @@ pub struct Service
     pub service_type: String,
     pub domain: String,
 }
-````
+```
 
 Resolving a service returns a Resolved:
 
@@ -29,7 +29,7 @@ pub struct Resolved
     pub port: u16,
     pub txt_data: Vec<String>,
 }
-````
+```
 
 Getting address info returns an AddressInfo:
 
@@ -49,6 +49,12 @@ use mdnsresponder::{
     MDnsResponder,
     MDnsResponderEvent,
     Protocol
+};
+
+use log::{
+    debug,
+    info,
+    error
 };
 
 #[tokio::main]

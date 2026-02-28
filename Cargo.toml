@@ -1,9 +1,10 @@
 [package]
 name = "libmdnsresponder"
-description = "Library for communicating with mDNSResponder over its unix socket"
+description = "Library for communicating with mDNSResponder over its Unix socket"
 homepage = "https://github.com/mikaelsahlstrom/rust-libmdnsresponder"
 repository = "https://github.com/mikaelsahlstrom/rust-libmdnsresponder"
 readme = "README.md"
+keywords = ["mdns", "dns-sd", "mdnsresponder"]
 
 version = "1.0.0"
 edition = "2024"
